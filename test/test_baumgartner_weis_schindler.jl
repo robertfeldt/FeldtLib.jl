@@ -57,4 +57,17 @@ test("BWS statistic") do
 
   end
 
+  within_delta(a, e, delta = 0.01) = abs(a - e) <= delta
+
+  test("example from Neuhauser 2004 paper, in table 3") do
+
+    control_group_ranks = [1, 2, 3, 4, 6, 7, 8]
+    experimental_group_ranks = [5, 9, 10, 11, 12, 13, 14]
+    rs = vcat(control_group_ranks, experimental_group_ranks)
+    n = length(control_group_ranks)
+    m = length(experimental_group_ranks)
+    @t within_delta(FeldtLib.bws_statistic_from_ranks(rs, n, m), 5.132)
+
+  end
+
 end
