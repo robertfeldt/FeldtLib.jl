@@ -1,16 +1,3 @@
-function ranks(v::AbstractArray)
-  n     = length(v)
-  place = sortperm(v)
-  ord   = Array(Float64, n)
-
-  for(i in 1:n)
-    ord[place[i]] = i
-  end
-
-  ord
-end
-
-#
 function baumgartner_weis_schindler_statistic(x, y)
   # Create a single array for sorting the values.
   values = vcat(x, y)
