@@ -10,6 +10,7 @@ function ranks(v::AbstractArray)
   ord
 end
 
+#
 function baumgartner_weis_schindler_statistic(x, y)
   # Create a single array for sorting the values.
   values = vcat(x, y)
