@@ -68,6 +68,11 @@ test("BWS statistic") do
     m = length(experimental_group_ranks)
     @t within_delta(FeldtLib.bws_statistic_from_ranks(rs, n, m), 5.132)
 
+    b, pvalue, m, sd = FeldtLib.bws_test_sampled(control_group_ranks, 
+        experimental_group_ranks)
+
+    println(pvalue)
+    @t within_delta(pvalue, 0.0029)
   end
 
 end

@@ -31,3 +31,31 @@ function calc_bws_sum(ranks, mini, maxi, n, np1, nm, subi = 0)
   end
   sum
 end
+
+function bws_test_sampled(x, y, numsamples = 10000)
+  # Create a single array for sorting the values.
+  values = vcat(x, y)
+
+  # Get the ranks. The first 1:n are ranks for x, (n+1):(n+m) for y.
+  rs = ranks(values)
+
+  n = length(x)
+  m = length(y)
+  actual_b = FeldtLib.bws_statistic_from_ranks(rs, n, m)
+
+  # Array to save the b statistics
+  samples = Array(Float64, numsamples)
+  num_larger = 0
+
+  for(i in 1:numsamples)
+    shuffle!(rs)
+    samples[i] = FeldtLib.bws_statistic_from_ranks(rs, n, m)
+    if samples[i] > actual_b
+      num_larger += 1
+    end
+  end
+
+  pvalue = 1.0 - (num_larger / numsamples)
+
+  (actual_b, pvalue, mean(samples), std(samples))
+end
