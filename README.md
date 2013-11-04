@@ -13,8 +13,12 @@ from a Julia repl.
 
 # Contents
 
-## Comparing two empirical distributions
+## Comparing two set of samples (empirical distributions)
 
-* Baumgartner-Weis-Schindler test: 
-  - `baumgartner_weis_schindler_statistic(x, y)`
+* Baumgartner-Weis-Schindler statistic and test: 
+  - `bws_statistic(x, y)`
   - `bws_test_sampled(x, y, numsamples = 10000)`
+
+* There is also an add-on layer to these tests to try to give them the same interface as in HypothesisTests.jl:
+  - `BWSTest(x, y)`
+  - `pvalue(t::BWSTest)`

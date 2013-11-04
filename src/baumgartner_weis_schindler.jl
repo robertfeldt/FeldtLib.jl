@@ -10,14 +10,14 @@
 #  Statistical Papers, vol. 46, pp. 1-30, Springer Verlag, 2005.
 #
 
-export baumgartner_weis_schindler_statistic, baumgartner_weis_schindler_test_sampled
+export bws_statistic, bws_test_sampled
 
 #############################################################################
 ## Part I. Calculating the BWS.
 #############################################################################
 
 # Calculate the BWS statistic from two samples of values.
-function baumgartner_weis_schindler_statistic(x, y)
+function bws_statistic(x, y)
   # Get the ranks. The first 1:n are ranks for x, (n+1):end for y.
   rs = ranks(vcat(x, y))
 
@@ -27,7 +27,7 @@ end
 # Test if according to the Baumgartner-Weis-Schindler (BWS) statistic we
 # can reject the hypothesis that the two set of samples x and y are likely to have
 # the same location (mean).
-function baumgartner_weis_schindler_test_sampled(x, y, numsamples = 10000)
+function bws_test_sampled(x, y, numsamples = 10000)
   # Get the ranks. The first 1:n are ranks for x, (n+1):(n+m) for y.
   rs = ranks(vcat(x, y))
 

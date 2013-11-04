@@ -24,10 +24,10 @@ test("BWS statistic") do
 
     b = (b_x + b_y) / 2
 
-    @t FeldtLib.baumgartner_weis_schindler_statistic(x, y) == b
+    @t FeldtLib.bws_statistic(x, y) == b
 
     bwst = FeldtLib.BWSTest(x, y)
-    @t bwst.b == FeldtLib.baumgartner_weis_schindler_statistic(x, y)
+    @t bwst.b == FeldtLib.bws_statistic(x, y)
     @t bwst.n == n
     @t bwst.m == m
 
@@ -58,16 +58,14 @@ test("BWS statistic") do
 
     b = (bx + by) / 2
 
-    @t FeldtLib.baumgartner_weis_schindler_statistic(x, y) == b
+    @t FeldtLib.bws_statistic(x, y) == b
 
     bwst = FeldtLib.BWSTest(x, y)
-    @t bwst.b == FeldtLib.baumgartner_weis_schindler_statistic(x, y)
+    @t bwst.b == FeldtLib.bws_statistic(x, y)
     @t bwst.n == n
     @t bwst.m == m
 
   end
-
-  in_delta(a, e, delta = 0.01) = abs(a - e) <= delta
 
   test("example from Neuhauser 2004 paper, in table 3") do
 
@@ -76,13 +74,13 @@ test("BWS statistic") do
     rs = vcat(control_group_ranks, experimental_group_ranks)
     n = length(control_group_ranks)
     m = length(experimental_group_ranks)
-    @t in_delta(FeldtLib.bws_statistic_from_ranks(rs, n, m), 5.132)
+    @t isapprox(FeldtLib.bws_statistic_from_ranks(rs, n, m), 5.132; atol = 0.001)
 
     b, pvalue, m, sd = r = FeldtLib.bws_test_sampled_from_ranks(rs, n, m, 10000) 
 
     # The exact p-value calculated by Neuhauser was 0.0029 so we should be close
     # to that.
-    @t in_delta(pvalue, 0.0029)
+    @t isapprox(pvalue, 0.0029; atol = 0.001)
 
   end
 
