@@ -26,9 +26,14 @@ test("BWS statistic") do
 
     @t FeldtLib.baumgartner_weis_schindler_statistic(x, y) == b
 
+    bwst = FeldtLib.BWSTest(x, y)
+    @t bwst.b == FeldtLib.baumgartner_weis_schindler_statistic(x, y)
+    @t bwst.n == n
+    @t bwst.m == m
+
   end
 
-  test("a small hand-calculated BWS case with 3+2 elemnts") do
+  test("a small hand-calculated BWS case with 3+2 elements") do
 
     x = [1.0, 2.0, 5.0]
     n = 3
@@ -55,9 +60,14 @@ test("BWS statistic") do
 
     @t FeldtLib.baumgartner_weis_schindler_statistic(x, y) == b
 
+    bwst = FeldtLib.BWSTest(x, y)
+    @t bwst.b == FeldtLib.baumgartner_weis_schindler_statistic(x, y)
+    @t bwst.n == n
+    @t bwst.m == m
+
   end
 
-  within_delta(a, e, delta = 0.01) = abs(a - e) <= delta
+  in_delta(a, e, delta = 0.01) = abs(a - e) <= delta
 
   test("example from Neuhauser 2004 paper, in table 3") do
 
@@ -66,13 +76,14 @@ test("BWS statistic") do
     rs = vcat(control_group_ranks, experimental_group_ranks)
     n = length(control_group_ranks)
     m = length(experimental_group_ranks)
-    @t within_delta(FeldtLib.bws_statistic_from_ranks(rs, n, m), 5.132)
+    @t in_delta(FeldtLib.bws_statistic_from_ranks(rs, n, m), 5.132)
 
-    b, pvalue, m, sd = FeldtLib.bws_test_sampled(control_group_ranks, 
-        experimental_group_ranks)
+    b, pvalue, m, sd = r = FeldtLib.bws_test_sampled_from_ranks(rs, n, m, 10000) 
 
-    println(pvalue)
-    @t within_delta(pvalue, 0.0029)
+    # The exact p-value calculated by Neuhauser was 0.0029 so we should be close
+    # to that.
+    @t in_delta(pvalue, 0.0029)
+
   end
 
 end

@@ -1,4 +1,4 @@
-using AutoTest
+include("helper.jl")
 
 path_to_this_file = Base.source_path()
 testdir = join(split(path_to_this_file, "/")[1:end-1], "/")

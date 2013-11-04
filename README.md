@@ -15,4 +15,6 @@ from a Julia repl.
 
 ## Comparing two empirical distributions
 
-* Baumgartner-Weis-Schindler test: `baumgartner_weis_schindler_statistic(x, y)`
+* Baumgartner-Weis-Schindler test: 
+  - `baumgartner_weis_schindler_statistic(x, y)`
+  - `bws_test_sampled(x, y, numsamples = 10000)`
