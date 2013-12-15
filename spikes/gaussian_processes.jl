@@ -67,6 +67,7 @@ draw(PNG("scatter_std_gaussian.png", 50cm, 36cm),
 draw(PNG("scatter_normal_gaussian.png", 50cm, 36cm),
   plot(x = normal_random_vector[1,:], y = normal_random_vector[2,:]));
 
+
 #####################################################################
 # 3. A Kernel Matrix demonstration Brownian motion
 #####################################################################
@@ -82,4 +83,65 @@ inverse = inverse - (triu(ones(n,n),1) - triu(ones(n,n),2))
 #draw some samples
 #r=randn(n,10)
 #subplot(1,3,3);plot(inverse\r);title('10 samples')
+
+
+#####################################################################
+# 4. Gaussian Process
+#####################################################################
+
+# one way of looking at a Gaussian Process is as a Multivariate Normal with
+# an infinite number of dimensions. However, in order to model
+# relationships between points, we construct the covariance matrix with a
+# function that defines the value of the matrix for any pair of real numbers:
+sigma_f = 1.1251  # parameter of the squared exponential kernel
+l =  0.90441      # parameter of the squared exponential kernel
+
+# This is one of many popular kernel functions, the squared exponential
+# kernel. It favors smooth functions. 
+kernel_function(x, x2) = sigma_f^2 * exp((x-x2)^2 / (-2*l^2))
+
+# we can also define an error function, which models the observation noise
+sigma_n = 0.1  # known noise on observed data
+# this is just iid gaussian noise with mean 0 and variance sigma_n^2s
+error_function(x, x2) = sigma_n^2 * (x==x2)
+
+# kernel functions can be added together. Here, we add the error kernel to
+# the squared exponential kernel:
+k(x, x2) = kernel_function(x,x2) + error_function(x,x2)
+
+# We can find the mean and the variance of the GP at each point
+# mean = zeros()
+n = int(abs(-2 - 1)/0.01)
+prediction_x = linspace(-2, 1, n)
+
+# now, we would like to sample from a Gaussian Process defined by this
+# kernel. First, for the subset of points we are interested to plot, we
+# construct the kernel matrix (using our kernel function)
+function kernel_matrix_from_func(xs, kernel_func)
+  n = length(xs)
+  K = zeros(n, n)  
+  for(i in 1:n)
+    for(j in i:n)
+      K[i,j] = K[j,i] = k(xs[i], xs[j])
+    end
+  end
+  return K
+end
+
+K = kernel_matrix_from_func(prediction_x, k)
+
+# We will use K as our covariance matrix, so lets decompose it
+function decompose(M)
+  D, V = eig(K)
+  V .* (D .^ 0.5);
+end
+A = decompose(K)
+
+# and then we can sample:
+gaussian_process_sample = A * randn(n, 7)
+
+# Lets generalize this:
+function gp_sample(kernelMatrix, numSamples)
+  decompose(kernelMatrix) * randn(size(kernelMatrix, 1), numSamples)
+end
 
