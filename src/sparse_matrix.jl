@@ -1,4 +1,4 @@
-# This only works if v is a n*1 matrix.
+# This only works if v is a n*1 matrix and the op is *.
 function Base.broadcast{Tv,Ti}(op, v::Array{Tv,2}, A::SparseMatrixCSC{Tv,Ti})
   I, J = findn(A)
   V = zeros(nnz(A))
