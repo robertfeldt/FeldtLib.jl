@@ -3,10 +3,10 @@
 #  Zhenqiu Liu and Gang Li. "Efficient Regularized Regression for Variable 
 #  Selection with L0 Penalty" Submitted to arXiv on July 29th 2014.
 #
-# theta = l0EM(X, y, lambda, epsilon, deltaTreshold)
+# theta = l0EM(X, y, lambda; kws...)
 #
 # Find coefficients 'theta' for regularized regression with L0 penalty, i.e.
-# theta minimizes 0.5*norm(y - X*theta) + lambda/2*sum(theta > 0.0).
+# theta minimizes 0.5*norm(y - X*theta) + lambda/2*sum(theta .> 0.0).
 #
 # Outputs:
 #  'theta' is an M*1 vector with the (sparse) coefficients.
@@ -19,6 +19,7 @@
 #  'lambda' is the regularization parameter. By default it is set via AIC, i.e. to 2.
 #    Other, typically valid values are log(N) (BIC) and 2*log(M) (RIC).
 #
+# Keyword args:
 #  'epsilon' is the minimum coefficient value that is allowed, below which the 
 #    coefficient is set to zero. Defaults to 1e-4.
 #
@@ -26,6 +27,9 @@
 #    converged. Defaults to 1e-5.
 #
 #  'nonnegative' is true iff only non-negative coefficients are allowed. Defaults to false.
+#
+#  'maxIterations' is max number of iterations (in case a lambda given so it doesn't converge).
+#
 function l0EM(X, y, lambda = 2; 
   epsilon = 1e-4, deltaTreshold = 1e-5, 
   nonnegative = false, maxIterations = 10000)
@@ -117,13 +121,14 @@ num_selected(v) = sum(v .> 0.0)
 #    2^12 which tends to give a sensible number of alternative models to choose from. 
 #    Increase it to find a large number of selected number of variables (returned in 'ns').
 #
+#  'logSpace' is true iff the search should be in log space i.e. if taking the logarithm
+#    into account when selecting mid points in the binary search.
+#
 #  'kws' are any other keyword arguments that will be passed on to the regressor.
-#
-# TBD:
-#  - Currently the search is not in log-space. It probably should be. Experiment.
-#
 function adaptive_lambda_regularized_regression(X, y, regressor = l0EM; 
-  minLambda = 1e-7, numLambdas = 100, stepDivisor = 2^12,
+  minLambda = 1e-7, numLambdas = 100, 
+  stepDivisor = 2^12,
+  logSpace = true,
   kws...)
 
   max_lambda = find_max_lambda(X, y)
@@ -148,6 +153,15 @@ function adaptive_lambda_regularized_regression(X, y, regressor = l0EM;
     return (cs, nvars)
   end
 
+  midpoint(minL, maxL) = begin
+    if logSpace
+      log_minL = log(minL)
+      exp( log_minL + (log(maxL) - log_minL) / 2 )
+    else
+      minL + (maxL - minL) / 2
+    end
+  end
+
   # Search the lambda values from minLambda to maxLambda
   binary_index_search(minLambda, maxLambda, minDelta) = begin
     #println("bis($minLambda, $maxLambda, $minDelta)")
@@ -157,7 +171,7 @@ function adaptive_lambda_regularized_regression(X, y, regressor = l0EM;
       csmax, nvarmax = update_if_not_there!(maxLambda)
       #println("  nvarmax = $nvarmax ($maxLambda)")
       if (nvarmin - nvarmax > 1)
-        mid = minLambda + (maxLambda - minLambda) / 2
+        mid = midpoint(minLambda, maxLambda)
         csmid, nvarmid = update_if_not_there!(mid)
         #println("  nvarmid = $nvarmid ($mid)")
         if nvarmin - nvarmid > 1
@@ -175,30 +189,43 @@ function adaptive_lambda_regularized_regression(X, y, regressor = l0EM;
   return (coeffs, num_vars_to_lambda)
 end
 
-# A simple variant of l0EM that tests a commonly good set of lambda values
-# and then selects the best one based on the test set MSE.
-# The currently tried values are: [1e-3, 1e-2, 1e-1, 1.0, 2.0, log(N), 2*log(M)]
-function theory_based_l0EM(X, y; kws...)
-  # TBD
-end
 
-N = 20
-M = 100
+# Basic test:
+N = 50
+M = 200
 X = randn(N, M)
-y = 1.0 * X[:,1] + 2.0 * X[:,2] + 3.0 * X[:,3] + 4.0 * X[:,4] + 0.10 * rand(N, 1)
 
-# 0.25, 0.50, AIC, BIC, RIC, maxLambda
-#lambdas = [0.25, 0.50, 2.0, log(N), 2*log(M), find_max_lambda(X,y)]
-#ts = map((l) -> l0EM(X, y, l), lambdas)
-#t0 = l0EM(X, y, 1e-4)
+actual_theta = [1.0, 2.0, 3.0, 4.0, zeros(M-4)]
+y = X * actual_theta + 0.10 * randn(N, 1)
 
+thetas = Dict{Symbol, Matrix{Float64}}()
+thetas[:AIC] = l0EM(X, y, 2.0)
+thetas[:BIC] = l0EM(X, y, log(N))
+thetas[:RIC] = l0EM(X, y, 2*log(M))
+
+# Using log space binary search seems to speed the search up about 10-30% depending on problem size. 
+# Potentially more for big data sets and with cross validation.
+@time cs, ns = adaptive_lambda_regularized_regression(X, y, l0EM);
+#@time csf, nsf = adaptive_lambda_regularized_regression(X, y, l0EM; logSpace = false);
+#sort(collect(keys(ns)))
+#length(cs)
+
+# Lets say we have a hunch of the expected model size. In reality we would select
+# the model via cross-validation, but here its just a test...
+thetas[:adaptive5] = cs[ns[5]]
+thetas[:adaptive4] = cs[ns[4]]
+thetas[:adaptive3] = cs[ns[3]]
+
+# Calc mse on a test set
+mse(theta, X, y) = mean( (X * theta - y).^2 )
+Xtest = randn(N, M)
+ytest = Xtest * actual_theta + 0.10 * randn(N, 1)
+map((s) -> (s, mse(thetas[s], Xtest, ytest)), [:AIC, :BIC, :RIC, :adaptive5, :adaptive4, :adaptive3])
+
+# If not using the adaptive (binary) search the standard method is to do 100 lambda values
+# in a log scale:
 #function log_split_lambdas(X, y, numLambdas = 10)
 #  exp(linspace(0.0, log(find_max_lambda(X, y) + 1), numLambdas)) - 1.0 + 1e-6
 #end
-
 #ts100 = map((l) -> l0EM(X, y, l), log_split_lambdas(X, y, 100))
 #num_vars = map((t) -> sum(t .> 0.0), ts100)
-
-@time cs, ns = adaptive_lambda_regularized_regression(X, y, l0EM);
-sort(collect(keys(ns)))
-length(cs)
