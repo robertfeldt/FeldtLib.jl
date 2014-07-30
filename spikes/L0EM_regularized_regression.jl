@@ -17,15 +17,19 @@
 #  'y' is an N by 1 array.
 #
 #  'lambda' is the regularization parameter. By default it is set via AIC, i.e. to 2.
+#    Other, typically valid values are log(N) (BIC) and 2*log(M) (RIC).
 #
 #  'epsilon' is the minimum coefficient value that is allowed, below which the 
 #    coefficient is set to zero. Defaults to 1e-4.
 #
 #  'delta_treshold' is the treshold value below which the iteration is deemed to have 
-#    converged. Defaults to 1e-6.
+#    converged. Defaults to 1e-5.
 #
 #  'nonnegative' is true iff only non-negative coefficients are allowed. Defaults to false.
-function l0EM(X, y, lambda = 2; epsilon = 1e-4, deltaTreshold = 1e-5, nonnegative = false)
+function l0EM(X, y, lambda = 2; 
+  epsilon = 1e-4, deltaTreshold = 1e-5, 
+  nonnegative = false, maxIterations = 10000)
+
   N, M = size(X)
   lambda_eye = lambda * eye(N)
   xt = X'
@@ -35,7 +39,11 @@ function l0EM(X, y, lambda = 2; epsilon = 1e-4, deltaTreshold = 1e-5, nonnegativ
     set_negative_to_zero!(theta)
   end
 
-  while true
+  iterations = 0
+
+  while iterations < maxIterations
+    iterations += 1
+
     # E-step:
     eta = theta
 
@@ -55,7 +63,7 @@ function l0EM(X, y, lambda = 2; epsilon = 1e-4, deltaTreshold = 1e-5, nonnegativ
     end
   end
 
-  theta[theta .< epsilon] = 0.0
+  theta[abs(theta) .< epsilon] = 0.0
 
   theta
 end
@@ -164,15 +172,20 @@ function adaptive_lambda_regularized_regression(X, y, regressor = l0EM;
   return (coeffs, num_vars_to_lambda)
 end
 
+# A simple variant of l0EM that tests a commonly good set of lambda values
+# and then selects the best one based on the test set MSE.
+# The currently tried values are: [1e-3, 1e-2, 1e-1, 1.0, 2.0, log(N), 2*log(M)]
+function theory_based_l0EM(X, y; kws...)
+  # TBD
+end
 
-N = 50
+N = 20
 M = 100
 X = randn(N, M)
-y = 1.0 * X[:,1] + 2.0 * X[:,2] + 3.0 * X[:,3] + 4.0 * X[:,4] + 0.01 * rand(N, 1)
+y = 1.0 * X[:,1] + 2.0 * X[:,2] + 3.0 * X[:,3] + 4.0 * X[:,4] + 0.10 * rand(N, 1)
 
 # 0.25, 0.50, AIC, BIC, RIC, maxLambda
 #lambdas = [0.25, 0.50, 2.0, log(N), 2*log(M), find_max_lambda(X,y)]
-
 #ts = map((l) -> l0EM(X, y, l), lambdas)
 #t0 = l0EM(X, y, 1e-4)
 
@@ -184,9 +197,5 @@ y = 1.0 * X[:,1] + 2.0 * X[:,2] + 3.0 * X[:,3] + 4.0 * X[:,4] + 0.01 * rand(N, 1
 #num_vars = map((t) -> sum(t .> 0.0), ts100)
 
 @time cs, ns = adaptive_lambda_regularized_regression(X, y, l0EM);
-#sort(collect(keys(ns)))
-#length(cs)
-#@time cs, ns8 = adaptive_lambda_regularized_regression(X, y, l0EM; stepDivisor = 2^8);
-#@time cs, ns12 = adaptive_lambda_regularized_regression(X, y, l0EM; stepDivisor = 2^12);
-#@time cs, ns14 = adaptive_lambda_regularized_regression(X, y, l0EM; stepDivisor = 2^14);
-#@time cs, ns16 = adaptive_lambda_regularized_regression(X, y, l0EM; stepDivisor = 2^16);
+sort(collect(keys(ns)))
+length(cs)
