@@ -119,6 +119,9 @@ num_selected(v) = sum(v .> 0.0)
 #
 #  'kws' are any other keyword arguments that will be passed on to the regressor.
 #
+# TBD:
+#  - Currently the search is not in log-space. It probably should be. Experiment.
+#
 function adaptive_lambda_regularized_regression(X, y, regressor = l0EM; 
   minLambda = 1e-7, numLambdas = 100, stepDivisor = 2^12,
   kws...)
