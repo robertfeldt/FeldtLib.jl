@@ -155,7 +155,7 @@ function min_aic_difference_map_reconstruction(d, y;
 	dps = pinv(d)
 
 	degrees = min_degree:max_degree
-	num_degrees = length(degrees)
+	num_degrees = Base.length(degrees)
 	xs = zeros(Float64, M, num_degrees)
 	its = zeros(Int64, num_degrees)
 	aics = zeros(Float64, num_degrees)
