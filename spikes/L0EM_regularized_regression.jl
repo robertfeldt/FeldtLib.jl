@@ -6,7 +6,7 @@
 # theta = l0EM(X, y, lambda; kws...)
 #
 # Find coefficients 'theta' for regularized regression with L0 penalty, i.e.
-# theta minimizes 0.5*norm(y - X*theta) + lambda/2*sum(theta .> 0.0).
+# theta minimizes 0.5*norm(y - X*theta) + lambda/2*sum(theta .> 0.0). 
 #
 # Outputs:
 #  'theta' is an M*1 vector with the (sparse) coefficients.
@@ -35,9 +35,9 @@ function l0EM(X, y, lambda = 2;
   nonnegative = false, maxIterations = 10000)
 
   N, M = size(X)
-  lambda_eye = lambda * eye(N)
+  lambda_eye = UniformScaling(lambda) # Same as but often faster than: lambda * eye(N)
   xt = X'
-  theta = xt * inv(X * xt .+ lambda_eye) * y
+  theta = xt * ((X * xt .+ lambda_eye) \ y) # Same as but often faster / more stable than: theta = xt * inv(X * xt .+ lambda_eye) * y
 
   if nonnegative
     set_negative_to_zero!(theta)
@@ -54,7 +54,7 @@ function l0EM(X, y, lambda = 2;
     # M-step:
     eta_squared = eta .^ 2
     xt_eta = broadcast(*, eta_squared, xt)
-    theta = xt_eta * inv(X * xt_eta .+ lambda_eye) * y
+    theta = xt_eta * ((X * xt_eta .+ lambda_eye) \ y) # Same as but often faster / more stable than: theta = xt_eta * inv(X * xt_eta .+ lambda_eye) * y
 
     # Ensure non-negativity if required
     if nonnegative
@@ -191,10 +191,9 @@ end
 
 
 # Basic test:
-N = 50
-M = 200
+N = 100
+M = 1000
 X = randn(N, M)
-
 actual_theta = [1.0, 2.0, 3.0, 4.0, zeros(M-4)]
 y = X * actual_theta + 0.10 * randn(N, 1)
 
