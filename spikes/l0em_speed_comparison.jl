@@ -235,10 +235,39 @@ end
 using DataFrames
 using HypothesisTests
 
-summarize(adf::AbstractDataFrame) = DataFrame(Avg = mean(adf[:Time]), Reps = length(adf[:Time]))
+coefficient_of_variation(v) = std(v) / mean(v)
+mad(v) = median(abs(v .- median(v)))
+rcv(v) = mad(v) / median(v)
+iqr(v) = quantile(v, 0.75) - quantile(v, 0.25)
+riqr(v) = iqr(v) / median(v)
 
 SkipIndicator = -100
-WP = symbol("p")
+WP = symbol("p-value")
+PM = symbol("+/- %")
+
+summarize(df::AbstractDataFrame) = DataFrame(
+  Avg = mean(df[:Time]), 
+  PM = 100.0 * coefficient_of_variation(df[:Time]),
+  #RCV = rcv(df[:Time]),
+  #RIQR = riqr(df[:Time]),
+  Max = maximum(df[:Time]),
+  Min = minimum(df[:Time]),
+  Reps = length(df[:Time]) 
+)
+
+#significance_indicator(p) = (p < 0.001) ? "***" : ((p < 0.01) ? "**" : ((p < 0.05) ? "*" : ((p == 1.0) ? "N/A" : "")))
+significance_indicator(p) = (p < 0.001) ? "Yes (p < 0.001)" : ((p < 0.01) ? "Yes (p < 0.01)" : ((p < 0.05) ? "Yes (p < 0.05)" : ((p == 1.0) ? "N/A" : "No")))
+speed_indication(t) = (t < 1) ? "." : ((t < 10) ? "," : ((t < 300) ? ":" : "|"))
+
+calc_pvalue(fastest, times) = begin
+  len = length(times)
+  # We use a right sided p-value since we know times is at least as large as fastest, on average.
+  pvalue(SignTest( (times - fastest[1:len]), 0 ), tail = :right)
+  # Wilcoxon not really right to use since executions are paired...
+  #pvalue(MannWhitneyUTest(times, fastest), tail = :both)
+end
+
+mean_speed_diff(fastest, times) = mean(times ./ fastest[1:length(times)])
 
 summarize_measurements(times, indices, n, rep, descs, sortByAvg = false) = begin
   df = DataFrame({times, indices}, [:Time, :Function])
@@ -258,7 +287,11 @@ summarize_measurements(times, indices, n, rep, descs, sortByAvg = false) = begin
 
   # Compare all functions to the fastest with a wilcoxon test
   times_fastest = df[:Time][df[:Function] .== fastest]
-  dfs[WP] = map((j) -> pvalue(MannWhitneyUTest(times_fastest, df[:Time][df[:Function] .== j])), 1:n)
+  #dfs[WP] = map((j) -> pvalue(MannWhitneyUTest(times_fastest, df[:Time][df[:Function] .== j])), 1:n)
+  dfs[WP] = map((j) -> calc_pvalue(times_fastest, df[:Time][df[:Function] .== j]), 1:n)
+  
+  # Calc relative for each paired rep and take mean of that:
+  #dfs[:Rel2] = map((j) -> mean_speed_diff(times_fastest, df[:Time][df[:Function] .== j]), 1:n)
 
   # Make information more readable
   dfs[:Function] = descs
@@ -267,24 +300,32 @@ summarize_measurements(times, indices, n, rep, descs, sortByAvg = false) = begin
   end
   dfs[:Avg] = map(format_time, dfs[:Avg])
   #dfs[:Median] = map(format_time, dfs[:Median])
-  dfs[:Relative] = map((v) -> signif(v, 3), dfs[:Relative])
-  dfs[WP] = map((v) -> signif(v, 2), dfs[WP])
-  significance_indicator(p) = (p < 0.001) ? "***" : ((p < 0.01) ? "**" : ((p < 0.05) ? "*" : ""))
-  dfs[symbol("Signif slower?")] = map(significance_indicator, dfs[WP])
+  dfs[symbol("Rel.")] = map((v) -> signif(v, 3), dfs[:Relative])
+  map( (s) -> dfs[s] = map((v) -> signif(v, 2), dfs[s]), [WP] )
+  dfs[:Max] = map(format_time, dfs[:Max])
+  dfs[:Min] = map(format_time, dfs[:Min])
+  ss = symbol("Signif slower?")
+  dfs[ss] = map(significance_indicator, dfs[WP])
+  dfs[PM] = map((v) -> signif(v, 3), dfs[:PM])
 
-  dfs
+  dfs[:,[:Function, :Avg, symbol("Rel."), :Reps, PM, :Max, :Min, WP, ss]]
 end
 
-speed_indication(t) = (t < 1) ? "." : ((t < 10) ? "," : ((t < 300) ? ":" : "|"))
+spaces(num) = join( map((i) -> " ", 1:num), "" )
 
 # Compare the execution speed of a set of functions on the same randomly generated input.
 # Run only as many replications of each function as is needed to show that it is slower than
 # the fastest of the functions.
-function speed_compare(funcs::Dict{ASCIIString, Function}, inputsGen::Function, 
-  MaxReplications = 15, MinReplications = 3,
+function speed_compare(funcs::Dict{ASCIIString, Function}, inputsGen::Function;
+  MaxReplications = 15, 
+  MinReplications = 3,
   alpha = 0.05)
 
+  # Create description strings of equal length
   descs = collect(keys(funcs))
+  max_desc_len = maximum(map(length, descs))
+  formatted_descs = map((s) -> s * spaces(max_desc_len - length(s)), descs)
+
   fs = map((d) -> funcs[d], descs)
   n = length(fs)
 
@@ -299,10 +340,8 @@ function speed_compare(funcs::Dict{ASCIIString, Function}, inputsGen::Function,
   local rep # since we need it in return statement below
 
   for rep in 1:MaxReplications
-    tic()
     inputs = inputsGen()
-    #println("\ninputs generated: $(format_time(toq()))")
-    for i in 1:n
+    for i in shuffle(collect(1:n))
       index = (i - 1) * MaxReplications + rep
       indices[index] = i
       if still_run[i]
@@ -327,33 +366,34 @@ function speed_compare(funcs::Dict{ASCIIString, Function}, inputsGen::Function,
     end
   end
 
-  return summarize_measurements(times, indices, n, rep, descs, true)
+  return summarize_measurements(times, indices, n, rep, formatted_descs, true)
 end
 
 alts = {
-  "original           " => l0EM_orig,
-  "solve              " => l0EM_solve,
-  "unisc & solve      " => l0EM_us_solve,
+  "original" => l0EM_orig,
+  "solve" => l0EM_solve,
+  "unisc & solve" => l0EM_us_solve,
 }
 alts = convert(Dict{ASCIIString, Function}, alts)
 
 input_gen_func(N, M, k, epsilon = 0.10) = () -> begin
   X = randn(N, M)
-  actual_theta = [linspace(1,k,k), zeros(M-k)]
+  #actual_theta = shuffle([linspace(1,k,k), zeros(M-k)][:])
+  actual_theta = shuffle([10.0 * rand(k,1), zeros(M-k)][:])
   y = X * actual_theta + epsilon * randn(N, 1)
   (X, y)
 end
 
 alts2 = {
-  "original           " => l0EM_orig,
-  "solve              " => l0EM_solve,
-  "unisc & solve      " => l0EM_us_solve,
-  #"adapt unisc & solve" => l0EM_adaptus_solve,
+  "original" => l0EM_orig,
+  "solve" => l0EM_solve,
+  "unisc & solve" => l0EM_us_solve,
+  "ad. unisc & solve" => l0EM_adaptus_solve,
 }
 alts2 = convert(Dict{ASCIIString, Function}, alts2)
 
-for N in [1e2, 2e2]
-  for M in [1e6]
+for N in [1e2]
+  for M in [1e4, 1e5]
     for k in [4]
       println("\nN = $(int(N)), M = $(int(M)), k = $(int(k))")
       showall( speed_compare(alts2, input_gen_func(int(N), int(M), k)) )
