@@ -100,6 +100,8 @@ using Distributions
 
 # call once to compile things
 binocdf(1, 10, 0.3)
+binocdf(1.0, 10.0, 0.3)
+binocdf(2.0, 10, 0.3)
 
 NumReps = 100000
 ourtimesum = 0.0
@@ -125,3 +127,4 @@ end
 
 println("Our average binocdf performance: ", ourtimesum / NumReps)
 println("Distributions.jl average binocdf performance: ", dtimesum / NumReps)
+println("Performance diff: ", round(ourtimesum / dtimesum, 2), "x")
