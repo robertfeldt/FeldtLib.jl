@@ -8,6 +8,7 @@
 
 # Cumulative Distribution Function evaluated at x of the Binomial(n, p) distribution:
 function binocdf(x, n, p)
+  x = ifloor(x)
   if x == n
     return 1.0
   else
@@ -106,7 +107,7 @@ dtimesum = 0.0
 
 for rep in 1:NumReps
   n = rand(2:20000)
-  x = rand(0:n)
+  x = rand() * n # rand(0:n)
   p = rand()
 
   tic()
