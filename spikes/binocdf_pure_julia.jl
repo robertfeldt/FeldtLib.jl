@@ -2,7 +2,7 @@
 # Distributions.jl implements the cdf of its Binomial by calling out to Rmath which 
 # is a Julia package that wraps the corresponding functions used in R. Since we do not want to
 # load the Distributions lib when starting Autotest we want a pure Julia implementation
-# of pbinom. We base this code on the pure Ruby code for incomplete beta function available here:
+# of binocdf. We base this code on the pure Ruby code for incomplete beta function available here:
 #   http://rubydoc.info/gems/rubystats/0.2.3/Rubystats/SpecialMath#incomplete_beta-instance_method
 #   
 
@@ -96,6 +96,9 @@ end
 
 # Compare to Distributions.jl
 using Distributions
+
+# call once to compile things
+binocdf(1, 10, 0.3)
 
 NumReps = 100000
 ourtimesum = 0.0
