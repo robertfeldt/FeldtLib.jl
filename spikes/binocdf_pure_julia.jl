@@ -22,9 +22,9 @@ binoccdf(x, n, p) = 1.0 - binocdf(x, n, p)
 # incompletebeta(x, a, b) evaluates incomplete beta function, here a, b > 0 and 0 <= x <= 1.
 function incompletebeta(x, a, b)
   if x == 0
-    return 0
+    return 0.0
   elseif x == 1
-    return 1
+    return 1.0
   else
     beta_gam = exp( a * log(x) + b * log(1.0 - x) - log_beta(a, b) )
     if x < ((a+1) / (a+b+2))
