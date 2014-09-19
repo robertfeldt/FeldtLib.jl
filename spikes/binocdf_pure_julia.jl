@@ -54,7 +54,7 @@ function beta_fraction(x, a, b, MaxIterations = 200)
   a_plus  = a + 1.0
   a_minus = a - 1.0
   h = 1.0 - sum_ab * x / a_plus
-  if abs(h) < XMININ 
+  if abs(h) < XMININ
     h = XMININ
   end
   h     = 1.0 / h
@@ -103,12 +103,22 @@ binocdf(1, 10, 0.3)
 binocdf(1.0, 10.0, 0.3)
 binocdf(2.0, 10, 0.3)
 
-NumReps = 100000
+# Sample lower values with higher prob through a log transform.
+# Often more realistic since people tend to use lower ranges/values 
+# frequently.
+function logsample(min, max)
+  shift = 1.0 - min
+  logmin = log(min + shift)
+  logmax = log(max + shift)
+  exp(logmin + (logmax - logmin) * rand()) - shift
+end
+
+NumReps = 1e5
 ourtimesum = 0.0
 dtimesum = 0.0
 
-for rep in 1:NumReps
-  n = rand(2:20000)
+for rep in 1:ifloor(NumReps)
+  n = ifloor(logsample(2, 1e6))
   x = rand() * n # rand(0:n)
   p = rand()
 
