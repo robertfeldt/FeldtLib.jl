@@ -35,7 +35,7 @@ function incompletebeta(x, a, b)
   end
 end
 
-LOG_GAMMA_X_MAX_VALUE = 2.55e292
+const LOG_GAMMA_X_MAX_VALUE = 2.55e292
 
 function log_beta(a, b)
   if (a <= 0.0) || (b <= 0.0) || (a + b) > LOG_GAMMA_X_MAX_VALUE
@@ -45,8 +45,8 @@ function log_beta(a, b)
   end
 end
 
-XMININ = 2.23e-303
-PRECISION = 8.88e-016
+const XMININ = 2.23e-303
+const PRECISION = 8.88e-016
 
 function beta_fraction(x, a, b, MaxIterations = 200) 
   c = 1.0
