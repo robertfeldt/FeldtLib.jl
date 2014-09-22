@@ -35,7 +35,8 @@ function l0EM(X, y, lambda = 2;
   nonnegative = false, maxIterations = 10000)
 
   N, M = size(X)
-  lambda_eye = UniformScaling(lambda) # Same as but often faster than: lambda * eye(N)
+  #lambda_eye = UniformScaling(lambda) # Same as but often faster than: lambda * eye(N)
+  lambda_eye = lambda * eye(N)
   xt = X'
   theta = xt * ((X * xt .+ lambda_eye) \ y) # Same as but often faster / more stable than: theta = xt * inv(X * xt .+ lambda_eye) * y
 
@@ -124,11 +125,16 @@ num_selected(v) = sum(v .> 0.0)
 #  'logSpace' is true iff the search should be in log space i.e. if taking the logarithm
 #    into account when selecting mid points in the binary search.
 #
+#  'includeAICetal' is true iff we ensure AIC, BIC and RIC are included among the lambdas 
+#    to be tested. The stepDivisor should typically be set lower (2^6) is this is set to true.
+#    Defaults to false.
+#
 #  'kws' are any other keyword arguments that will be passed on to the regressor.
 function adaptive_lambda_regularized_regression(X, y, regressor = l0EM; 
   minLambda = 1e-7, numLambdas = 100, 
   stepDivisor = 2^12,
   logSpace = true,
+  includeAICetal = false,
   kws...)
 
   max_lambda = find_max_lambda(X, y)
@@ -184,42 +190,67 @@ function adaptive_lambda_regularized_regression(X, y, regressor = l0EM;
     end
   end
 
-  binary_index_search(minLambda, max_lambda, log_increment/stepDivisor)
+  if includeAICetal
+
+    # Always include the AIC, BIC and RIC endpoints and search them first to ensure
+    # they are included.
+    a, b = 2.0 < log(N) ? (2.0, log(N)) : (log(N), 2.0)
+    binary_index_search(a, b, log_increment/stepDivisor)
+    b, c = b < (2*log(M)) ? (b, 2*log(M)) : (2*log(M), b)
+    binary_index_search(b, c, log_increment/stepDivisor)
+
+    # And then from minLambda up to AIC and from RIC up to max lambda.
+    binary_index_search(minLambda, a, log_increment/stepDivisor)
+    binary_index_search(c, max_lambda, log_increment/stepDivisor)
+
+  else
+    binary_index_search(minLambda, max_lambda, log_increment/stepDivisor)
+  end
 
   return (coeffs, num_vars_to_lambda)
 end
 
+mse(theta, X, y) = mean( (X * theta - y).^2 )
 
 # Basic test:
-N = 100
-M = 1000
-X = randn(N, M)
-actual_theta = [1.0, 2.0, 3.0, 4.0, zeros(M-4)]
-y = X * actual_theta + 0.10 * randn(N, 1)
+function basic_l0EM_test(N, M, NumReps = 30)
+  for rep in 1:NumReps
+    k = rand(1:iceil(2*log(M)))
+    X = randn(N, M)
+    actual_theta = [linspace(1,k,k), zeros(M-k)]
+    y = X * actual_theta + 0.10 * randn(N, 1)
 
-thetas = Dict{Symbol, Matrix{Float64}}()
-thetas[:AIC] = l0EM(X, y, 2.0)
-thetas[:BIC] = l0EM(X, y, log(N))
-thetas[:RIC] = l0EM(X, y, 2*log(M))
+    cs, ns = adaptive_lambda_regularized_regression(X, y, l0EM; 
+      stepDivisor = 2^4, includeAICetal = true);
+
+    # Find lambda with lowest MSE on test set
+    Xtest = randn(N, M)
+    ytest = Xtest * actual_theta + 0.10 * randn(N, 1)
+    best_mse = Inf
+    local best_lambda, best_nvars
+    for lambda in values(ns)
+      newmse = mse(cs[lambda], Xtest, ytest)
+      if newmse < best_mse
+        best_nvars = num_selected(cs[lambda])
+        best_lambda = lambda
+        best_mse = newmse
+      end
+    end
+    println("k = $k, Lambda = $best_lambda, num vars = $best_nvars, MSE = $best_mse")
+  end
+end
+
+basic_l0EM_test(50, 100, 10)
 
 # Using log space binary search seems to speed the search up about 10-30% depending on problem size. 
 # Potentially more for big data sets and with cross validation.
-@time cs, ns = adaptive_lambda_regularized_regression(X, y, l0EM);
+#@time cs2, ns2 = adaptive_lambda_regularized_regression(X, y, l0EM; stepDivisor = 2^2, includeAICetal = true);
+#@time cs4, ns4 = adaptive_lambda_regularized_regression(X, y, l0EM; stepDivisor = 2^4, includeAICetal = true);
+#@time cs6, ns6 = adaptive_lambda_regularized_regression(X, y, l0EM; stepDivisor = 2^6, includeAICetal = true);
+#@time cs4b, ns4b = adaptive_lambda_regularized_regression(X, y, l0EM; stepDivisor = 2^4, includeAICetal = false);
 #@time csf, nsf = adaptive_lambda_regularized_regression(X, y, l0EM; logSpace = false);
 #sort(collect(keys(ns)))
 #length(cs)
-
-# Lets say we have a hunch of the expected model size. In reality we would select
-# the model via cross-validation, but here its just a test...
-thetas[:adaptive5] = cs[ns[5]]
-thetas[:adaptive4] = cs[ns[4]]
-thetas[:adaptive3] = cs[ns[3]]
-
-# Calc mse on a test set
-mse(theta, X, y) = mean( (X * theta - y).^2 )
-Xtest = randn(N, M)
-ytest = Xtest * actual_theta + 0.10 * randn(N, 1)
-map((s) -> (s, mse(thetas[s], Xtest, ytest)), [:AIC, :BIC, :RIC, :adaptive5, :adaptive4, :adaptive3])
 
 # If not using the adaptive (binary) search the standard method is to do 100 lambda values
 # in a log scale:
