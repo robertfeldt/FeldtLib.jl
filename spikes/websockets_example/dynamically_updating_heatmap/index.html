@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>Dynamically updating D3 from Julia heatmap</title>
+    <meta charset="UTF-8">
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/bacon.js/0.7.12/bacon.min.js"></script>
+    <script>
+      window.onload = function() {
+        var ws = new WebSocket("ws://localhost:8084/");
+        ws.onopen = function(e) { console.log("opened on port 8084"); }
+        ws.onclose = function(e) { console.log("closed on port 8084"); }
+        
+        //ws.onmessage = function(e) { console.log("got: " + JSON.stringify(JSON.parse(e.data))); }
+
+        var updateStream = Bacon.fromEventTarget(ws, "message").map(function(event) {
+          var dataString = event.data;
+          return JSON.parse(dataString);
+        });
+
+        // Messages of type "unspecified" are just printed to console
+        var skipStream = updateStream.filter(function(update) {
+          return update.type === "unspecified";
+        });
+
+        skipStream.onValue(function(results) {
+          console.log(JSON.stringify(results));
+        });
+
+        var a = []; // Empty for now, will be filled from back end
+
+        var dataUpdateStream = updateStream.filter(function(update) {
+          return update.type === "dataupdate";
+        });
+        dataUpdateStream.onValue(function(results) {
+          console.log(JSON.stringify(results));
+          if(results["name"] == "a") {
+            console.log("Data to update is a, with value ", results["value"]);
+            if(a.length < results["row"]) {
+              for (i = a.length+1; i <= results["row"]; i++) {
+                a[i-1] = new Array();
+              }
+            }
+            //console.log("row: ", results["row"], ", col: ", results["col"], ", value: ", results["value"]);
+            a[results["row"]-1][results["col"]-1] = results["value"];
+            console.log("a is now:\n", JSON.stringify(a));
+          }
+        });
+      };
+    </script>
+  </head>
+    <body>
+      <div id="holder" style="width:600px; height:300px"></div>
+    </body>
+</html>
