@@ -134,6 +134,9 @@ function r2(ypred, y)
   1.0 - SSR / SST
 end
 
+mape(ypred, y) = 100.0 * mean(abs((ypred .- y) ./ y))
+medape(ypred, y) = 100.0 * median(abs((ypred .- y) ./ y))
+
 # Convenience function that builds the model from x and y and then uses the model
 # to predict the y values for the points in xx.
 function rbf_predict(x::Array{Float64, 2}, y::Array{Float64, 2}, 
@@ -152,6 +155,7 @@ end
 function rank_rbfs(x::Array{Float64, 2}, y::Array{Float64, 2}, 
   xx::Array{Float64, 2}, yy::Array{Float64, 2}; rbfs = {
   "ThinPlate(1.0)"      => (rbf_thin_plate, 1.0),
+  "ThinPlate(10.0)"      => (rbf_thin_plate, 10.0),
   "Cubic(1.0)"          => (rbf_cubic, 1.0),
   "Multiquadric(1.0)"   => (rbf_multiquadric, 1.0),
   "Gaussian(1/D^2)"     => (rbf_gaussian, 1/(size(x,1)^2))})
@@ -159,41 +163,56 @@ function rank_rbfs(x::Array{Float64, 2}, y::Array{Float64, 2},
   rbfs = collect(rbfs)
   num_rbfs = length(rbfs)
   r2s = zeros(Float64, num_rbfs)
+  medapes = zeros(Float64, num_rbfs)
 
   for i in 1:num_rbfs
     rbf, c = rbfs[i][2]
     ypred, rbfm = rbf_predict(x, y, xx; rbf = rbf, c = c)
-    r2s[i] = r2(ypred, yy)
+    r2s[i] = round(r2(ypred, yy), 3)
+    medapes[i] = round(medape(ypred, yy), 2)
   end
 
-  perm = sortperm(r2s; rev = true)
+  perm = sortperm(-medapes; rev = true)
 
   for i in 1:num_rbfs
     j = perm[i]
-    println("$(i). $(rbfs[j][1]), R2 = $(r2s[j])")
+    println("$(i). $(rbfs[j][1]), R2 = $(r2s[j]), MEDAPE = $(medapes[j])")
   end
 
 end
 
 # Test functions
+function rastrigin(x)
+  D = length(x)
+  10 * D + sum( x.^2 ) - 10 * sum( cos( 2 * π * x ) )
+end
+
 test_functions = {
   "Sum of equally weighted quadratics" => (x) -> sum(x.^2),
   "Sum of equally weighted cubics" => (x) -> sum(x.^3),
   "Sum of non-equally weighted cubics" => (x) -> 10*x[1]^3 + sum(x[2:end].^3),
+  "Sum of non-equally weighted quadratics" => (x) -> 10*x[1]^2 + sum(x[2:end].^2),
+  "Rastrigin" => rastrigin
 }
 tfs = collect(test_functions)
 
-N = 100
 D = 10
+T = 50
+
+Ns = [100, 500]
 
 for i in 1:length(tfs)
   tfdesc, tf = tfs[i]
 
-  xtraining = randn(D, N)
-  ytraining = mapslices(tf, xtraining, 1)
-  xtest = randn(D, int(N/2))
-  ytest = mapslices(tf, xtest, 1)
+  for N in Ns
+    xtraining = randn(D, N)
+    ytraining = mapslices(tf, xtraining, 1)
+    xtest = randn(D, T)
+    ytest = mapslices(tf, xtest, 1)
 
-  println("For test function $(tfdesc)")
-  rank_rbfs(xtraining, ytraining, xtest, ytest)
+    println("For test function $(tfdesc), N = $(N)")
+    rank_rbfs(xtraining, ytraining, xtest, ytest)
+    println("")
+  end
+
 end
