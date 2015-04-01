@@ -61,8 +61,8 @@ function check_and_setup_lambdasequence(p, lambdas = nothing)
   else
     # Page 7 of the latest Candes2015 paper on SLOPE states that a very simple lambda sequence can be used:
     lambdafunc(k, p) = sqrt(2*log(p/k))
-    # But we found they need to be smaller!?
-    lambdas = map(k -> lambdafunc(k, p)/10, 1:p)
+    # But we found they need to be smaller for Convex.jl and FastProxSL1 prox solvers!?
+    lambdas = map(k -> lambdafunc(k, p)/50, 1:p)
   end
   return lambdas
 end
@@ -72,14 +72,14 @@ end
 function solve_SLOPE_w_proximal_gradient(X::Matrix{Float64}, y::Vector{Float64}, proxsolver::Function;
   stepsizefunc = nothing,       # Default is to use 1/norm(X)^2, so a fixed scheme...
   lambdas = nothing,            # Default is to use the simple sequence below from Candes2015 paper...
-  maxiterations = int(5e3), stopval = 1e-3, verbose = true)
+  maxiterations = int(5e4), stopval = 1e-3, verbose = true)
 
   # Assert valid inputs, setup and precalc
   n, p = size(X)
   @assert n == length(y)
   lambdas = check_and_setup_lambdasequence(p, lambdas)
   Xprim = X'        # Precalc for speed 
-  bprev = randn(p)  # Initial guess is random
+  bnew = bprev = randn(p)  # Initial guess is random
   if stepsizefunc == nothing
     limitval = (2 / norm(X)^2) / 2 # Divide by 2 to ensure it is less than the limitval
     stepsizefunc = (i,b) -> limitval
@@ -124,13 +124,64 @@ end
 beta, X, y, indices, n, p, a, sigma, amplitude, errors = rand_sparse_problem(100; shuffle = false);
 
 # And let SLOPE loose on it...
-@time betahat = solve_SLOPE_w_convexjl(X, y)
-println(beta[1:a])
-println(betahat[1:a])
-println(norm(beta .- betahat))
+#@time betahat = solve_SLOPE_w_convexjl(X, y)
+#println(beta[1:a])
+#println(betahat[1:a])
+#println(norm(beta .- betahat))
 
 # There are bugs though...
 
-# Lets implement the FastProx SL1 alg of Bogdan et al to see if that helps...
-function fast_prox_sl1()
+# Lets implement the stack-based FastProx SL1 alg of Bogdan et al to see if that helps...
+# This is Alg 4 in the Bogdan2014 paper.
+function fast_prox_sl1(yproxvals, lambdas)
+  p = length(yproxvals)
+  tuples = Any[]
+  t = 0
+
+  # Find optimal group levels
+  for k in 1:p
+    t += 1
+    i, j, s = k, k, (yproxvals[k] - lambdas[k])
+    w = abs(s)
+    push!(tuples, (i, j, s, w))
+    while (t > 1) && (tuples[t-1][4] .<= w)
+      itm1, jtm1, stm1, wtm1 = tuples[t-1]
+      it, jt, st, wt = tuples[t]
+      wnew = (jtm1 - itm1 + 1)/(jt - itm1 + 1) * stm1 .+ (jt - it + 1)/(jt - itm1 + 1) * st
+      tuples[t-1] = (itm1, jt, stm1 .+ st, abs(wnew))
+      pop!(tuples) # Delete last entry
+      t -= 1
+    end
+  end
+
+  # Set entries in x for each block
+  x = zeros(p)
+  for l in 1:t
+    for k in tuples[l][1]:tuples[l][2]
+      x[k] = tuples[l][4]
+    end
+  end
+  x
 end
+
+solve_prox_problem_with_fastproxsl1(yproxvals, lambdas) = begin
+  yperm, sngy, absy = sort_and_normalize(yproxvals)
+  ynormalized = absy[yperm]
+
+  xvals = fast_prox_sl1(ynormalized, lambdas)
+
+  # Reorder and put back the signs...
+  sngy .* revert_sortperm(xvals, yperm)
+end
+
+function solve_SLOPE_w_fastproxsl1(X::Matrix{Float64}, y::Vector{Float64}; options...)
+  solve_SLOPE_w_proximal_gradient(X, y, solve_prox_problem_with_fastproxsl1; options...)
+end
+
+# And let SLOPE loose on it...
+@time betahat = solve_SLOPE_w_fastproxsl1(X, y)
+println(betahat)
+println(beta[1:a])
+println(betahat[1:a])
+println(length(find(abs(betahat) .> 0)))
+println(norm(beta .- betahat))
