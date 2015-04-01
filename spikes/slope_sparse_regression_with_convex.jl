@@ -53,16 +53,22 @@ solve_prox_problem_with_convexjl(yproxvals, lambdas, x, constraints) = begin
   sngy .* revert_sortperm(x.value, yperm)
 end
 
+# The default choice for lambdas is Benjamini-Hochberg sequence where q is the FDR:
+using Distributions
+NormalDistr = Normal()
+bh_lambdafunc(i, p, q = 0.10) = quantile(NormalDistr, 1 - i*q/(2*p))
+
+# Page 7 of the latest Candes2015 paper on SLOPE states that a very simple lambda sequence can be used:
+# But we found they need to be smaller for Convex.jl and FastProxSL1 prox solvers!?
+candes2015_lambdafunc(k, p, q = 0.10) = sqrt(2*log(p/k))
+
 # Use a given lambdas sequence or set it up based on the simple sequence from
 # Candes2015 paper if not given.
-function check_and_setup_lambdasequence(p, lambdas = nothing)
+function check_and_setup_lambdasequence(p, lambdas = nothing, q = 0.05)
   if lambdas != nothing
     @assert p == length(lambdas)
   else
-    # Page 7 of the latest Candes2015 paper on SLOPE states that a very simple lambda sequence can be used:
-    lambdafunc(k, p) = sqrt(2*log(p/k))
-    # But we found they need to be smaller for Convex.jl and FastProxSL1 prox solvers!?
-    lambdas = map(k -> lambdafunc(k, p)/50, 1:p)
+    lambdas = map(k -> bh_lambdafunc(k, p, q), 1:p)
   end
   return lambdas
 end
