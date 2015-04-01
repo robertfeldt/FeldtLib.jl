@@ -23,11 +23,12 @@ end
 # The prox problem we solve assumes y are sorted and positive. We keep the permutation vector
 # around so we can revert later.
 sort_and_normalize(y) = begin
-  return sortperm(y), sign(y), abs(y)
+  absy = abs(y)
+  return sortperm(absy, rev = true), sign(y), absy
 end
 
-solve_prox_problem_with_convexjl(y, lambdas, x, constraints) = begin
-  yperm, sngy, absy = sort_and_normalize(y)
+solve_prox_problem_with_convexjl(yvals, lambdas, x, constraints) = begin
+  yperm, sngy, absy = sort_and_normalize(yvals)
   ynormalized = absy[yperm]
 
   problem = minimize(0.5 * norm(ynormalized .- x), constraints)
@@ -64,7 +65,7 @@ end
 function solve_SLOPE_w_proximal_gradient(X::Matrix{Float64}, y::Vector{Float64}, proxsolver::Function;
   stepsizefunc = (i,b) -> 1e-2, # This is a very restricted, fixed step size scheme for now...
   lambdas = nothing,            # Default is to use the simple sequence below from Candes2015 paper...
-  maxiterations = int(1e4), stopval = 1e-4, verbose = true)
+  maxiterations = int(5e3), stopval = 1e-3, verbose = true)
 
   # Assert valid inputs, setup and precalc
   n, p = size(X)
@@ -78,8 +79,6 @@ function solve_SLOPE_w_proximal_gradient(X::Matrix{Float64}, y::Vector{Float64},
     tk = stepsizefunc(k, bprev)
     yproxvals = bprev .- tk * Xprim * (X * bprev .- y)
     bnew = proxsolver(yproxvals, lambdas)
-    @show bprev
-    @show bnew
     delta = norm(bnew .- bprev)
     println("k = ", k, ", delta = ", delta)
     if delta < stopval
@@ -111,7 +110,7 @@ function rand_sparse_problem(p; a = iceil(log(p)), n = int(p/2), amplitude = 10.
   return beta, X, y, indices, n, p, a, sigma, amplitude, errors
 end
 
-beta, X, y, indices, n, p, a, sigma, amplitude, errors = rand_sparse_problem(100);
+beta, X, y, indices, n, p, a, sigma, amplitude, errors = rand_sparse_problem(10);
 
 # And let SLOPE loose on it...
 @time betahat = solve_SLOPE_w_convexjl(X, y)
