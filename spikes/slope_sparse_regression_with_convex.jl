@@ -61,7 +61,8 @@ function check_and_setup_lambdasequence(p, lambdas = nothing)
   else
     # Page 7 of the latest Candes2015 paper on SLOPE states that a very simple lambda sequence can be used:
     lambdafunc(k, p) = sqrt(2*log(p/k))
-    lambdas = map(k -> lambdafunc(k, p), 1:p)
+    # But we found they need to be smaller!?
+    lambdas = map(k -> lambdafunc(k, p)/10, 1:p)
   end
   return lambdas
 end
@@ -120,12 +121,16 @@ function rand_sparse_problem(p; a = iceil(log(p)), n = int(p/2), amplitude = 10.
   return beta, X, y, indices, n, p, a, sigma, amplitude, errors
 end
 
-beta, X, y, indices, n, p, a, sigma, amplitude, errors = rand_sparse_problem(10);
+beta, X, y, indices, n, p, a, sigma, amplitude, errors = rand_sparse_problem(100; shuffle = false);
 
 # And let SLOPE loose on it...
 @time betahat = solve_SLOPE_w_convexjl(X, y)
-println(beta)
-println(betahat)
+println(beta[1:a])
+println(betahat[1:a])
 println(norm(beta .- betahat))
 
 # There are bugs though...
+
+# Lets implement the FastProx SL1 alg of Bogdan et al to see if that helps...
+function fast_prox_sl1()
+end
