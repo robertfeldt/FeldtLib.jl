@@ -17,6 +17,7 @@ setup_x_and_constraints(p) = begin
   for i in 1:(p-1)
     constraints += (x[i] >= x[i+1])
   end
+  constraints += (x[p] >= 0)
   return x, constraints
 end
 
@@ -31,10 +32,10 @@ solve_prox_problem_with_convexjl(yvals, lambdas, x, constraints) = begin
   yperm, sngy, absy = sort_and_normalize(yvals)
   ynormalized = absy[yperm]
 
-  problem = minimize(0.5 * norm(ynormalized .- x), constraints)
-  solve!(problem)
-  if problem.status != :Optimal
-    throw(string(problem))
+  proxproblem = minimize(0.5 * norm(ynormalized .- x) + sum(lambdas .* x), constraints)
+  solve!(proxproblem)
+  if proxproblem.status != :Optimal
+    throw(string(proxproblem))
   end
 
   # Reorder and put back the signs...
