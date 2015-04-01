@@ -82,15 +82,15 @@ solve_prox_problem_with_fastproxsl1(yproxvals, lambdas) = begin
 end
 
 # Test values for params
-iterations = 10000      # Maximum number of iterations
-q = 0.05
-verbosity = 1         # 0 = nothing, 1 = major, 2 = every
-optimIter = 1         # Iterations between optimality-condition checks
-gradIter = 20         # Iterations between full gradient computations
-tolInfeas = 1e-6       # Maximum allowed dual infeasibility
-tolRelGap = 1e-6       # Stopping criterion for relative primal-dual gap
-xInit = zeros(size(A,2))  # Initial value of x
-lambdas = nothing
+#iterations = 10000      # Maximum number of iterations
+#q = 0.05
+#verbosity = 1         # 0 = nothing, 1 = major, 2 = every
+#optimIter = 1         # Iterations between optimality-condition checks
+#gradIter = 20         # Iterations between full gradient computations
+#tolInfeas = 1e-6       # Maximum allowed dual infeasibility
+#tolRelGap = 1e-6       # Stopping criterion for relative primal-dual gap
+#xInit = zeros(size(A,2))  # Initial value of x
+#lambdas = nothing
 
 # solve_SLOPE  Sorted L1 parameter estimation solver
 #
@@ -305,13 +305,49 @@ function rand_sparse_problem(p; numactive = iceil(log(p)),
   return beta, X, y, indices, n, p, numactive, sigma, amplitude, errors
 end
 
+# Find the sharpest difference between the found values and use that as the estimate
+# of the num active values.
+function estimate_active(xhat)
+  relsize = abs(xhat) / maximum(abs(xhat))
+  relsizeperm = sortperm(relsize, rev=true) 
+  srelsize = relsize[relsizeperm]
+  relfactors = srelsize[1:end-1] ./ srelsize[2:end]
+  numactive = find(rf -> rf == maximum(relfactors), relfactors)[1]
+  return relsizeperm[1:numactive]
+end
+
+# First estimate the number of active coefficients by a SLOPE solve then
+# do a linreg on only those factors.
+function sparse_regression_SLOPE(A, b; iterations = 250, options...)
+  xhat, info = solve_SLOPE(A, b; iterations = iterations, options...)
+  active = estimate_active(xhat)
+  Asub = A[:, active]
+  res = linreg(Asub, b)
+  xhatsub = zeros(size(A, 2))
+  xhatsub[active] = res[2:end]
+  return xhatsub, res[2:end], active
+end
+
 x, A, b, indices, n, p, numactive, sigma, amplitude, errors = rand_sparse_problem(1000; 
   shuffle = false, numactive = 10);
 
-xhat, info = solve_SLOPE(A, b; iterations = 1000)
+# Split in train and test set
+idxs = shuffle(collect(1:n))
+trainsize = ifloor(0.80*n)
+trainidxs = idxs[1:trainsize]
+testidxs = idxs[(trainsize+1):end]
+Atrain = A[trainidxs, :]
+btrain = b[trainidxs]
+Atest = A[testidxs, :]
+btest = b[testidxs]
+
+xhat, xselected, selected = sparse_regression_SLOPE(Atrain, btrain)
+
 println(x[1:numactive])
 println(xhat[1:numactive])
-println(norm(x .- xhat))
-
-relsize = abs(xhat) / abs(maximum(xhat))
-println(minimum(relsize[1:numactive])/maximum(relsize[(numactive+1):end]))
+println("Norm(x .- xhat) = ", norm(x .- xhat))
+println("Norm(b .- bhat) = ", norm(btrain .- bhat))
+mape(y, yhat) = mean(100.0 * abs(yhat - y)/y)
+@printf("Num active = %d, Num active selected = %d", numactive, length(selected))
+@printf("Train MAPE = %.2f%%", mape(btrain, Atrain*xhat))
+@printf("Test MAPE = %.2f%%", mape(btest, Atest*xhat))
