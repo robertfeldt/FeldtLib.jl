@@ -328,8 +328,24 @@ function sparse_regression_SLOPE(A, b; iterations = 250, options...)
   return xhatsub, res[2:end], active
 end
 
-x, A, b, indices, n, p, numactive, sigma, amplitude, errors = rand_sparse_problem(1000; 
-  shuffle = false, numactive = 10);
+if length(ARGS) >= 1
+  numcoefs = int(ARGS[1])
+else
+  numcoefs = 1000
+end
+if length(ARGS) >= 2
+  numact = int(ARGS[2])
+else
+  numact = 10
+end
+if length(ARGS) >= 3
+  maxiterations = int(ARGS[3])
+else
+  maxiterations = 500
+end
+
+x, A, b, indices, n, p, numactive, sigma, amplitude, errors = rand_sparse_problem(numcoefs; 
+  shuffle = false, numactive = numact);
 
 # Split in train and test set
 idxs = shuffle(collect(1:n))
@@ -341,13 +357,12 @@ btrain = b[trainidxs]
 Atest = A[testidxs, :]
 btest = b[testidxs]
 
-xhat, xselected, selected = sparse_regression_SLOPE(Atrain, btrain)
+xhat, xselected, selected = sparse_regression_SLOPE(Atrain, btrain; iterations = maxiterations)
 
 println(x[1:numactive])
 println(xhat[1:numactive])
 println("Norm(x .- xhat) = ", norm(x .- xhat))
-println("Norm(b .- bhat) = ", norm(btrain .- bhat))
-mape(y, yhat) = mean(100.0 * abs(yhat - y)/y)
-@printf("Num active = %d, Num active selected = %d", numactive, length(selected))
-@printf("Train MAPE = %.2f%%", mape(btrain, Atrain*xhat))
-@printf("Test MAPE = %.2f%%", mape(btest, Atest*xhat))
+mape(y, yhat) = mean(100.0 * abs((yhat - y)/y))
+@printf("Num active = %d, Num active selected = %d\n", numactive, length(selected))
+@printf("Train MAPE = %.2f%%\n", mape(btrain, Atrain*xhat))
+@printf("Test MAPE = %.2f%%\n", mape(btest, Atest*xhat))
