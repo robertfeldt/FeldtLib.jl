@@ -260,10 +260,10 @@ significance_indicator(p) = (p < 0.001) ? "Yes (p < 0.001)" : ((p < 0.01) ? "Yes
 speed_indication(t) = (t < 1) ? "." : ((t < 10) ? "," : ((t < 300) ? ":" : "|"))
 
 calc_pvalue(fastest, times) = begin
-  len = length(times)
+  len = min(length(fastest), length(times))
   # We use a right sided p-value since we know times is at least as large as fastest, on average.
-  pvalue(SignTest( (times - fastest[1:len]), 0 ), tail = :right)
-  # Wilcoxon not really right to use since executions are paired...
+  pvalue(SignTest( (times .- fastest[1:len]), 0 ), tail = :right)
+  # Wilcoxon/MannWhitneyUTest not really right to use since executions are paired...
   #pvalue(MannWhitneyUTest(times, fastest), tail = :both)
 end
 
@@ -359,7 +359,7 @@ function speed_compare(funcs::Dict{ASCIIString, Function}, inputsGen::Function;
       dfs = summarize_measurements(times, indices, n, rep, descs)
       # Only run those which do not have p-values below alpha compared
       # to the fastest running functions:
-      still_run = dfs[WP] .> alpha
+      still_run = still_run & (dfs[WP] .> alpha)
       if sum(still_run) < 2
         break
       end
@@ -388,13 +388,13 @@ alts2 = {
   "original" => l0EM_orig,
   "solve" => l0EM_solve,
   "unisc & solve" => l0EM_us_solve,
-  "ad. unisc & solve" => l0EM_adaptus_solve,
+  # "ad. unisc & solve" => l0EM_adaptus_solve,
 }
 alts2 = convert(Dict{ASCIIString, Function}, alts2)
 
-for N in [1e2]
-  for M in [1e4, 1e5]
-    for k in [4]
+for N in [1e2, 1e3]
+  for M in [1e2, 1e3, 1e4]
+    for k in [4, 16]
       println("\nN = $(int(N)), M = $(int(M)), k = $(int(k))")
       showall( speed_compare(alts2, input_gen_func(int(N), int(M), k)) )
       println("")

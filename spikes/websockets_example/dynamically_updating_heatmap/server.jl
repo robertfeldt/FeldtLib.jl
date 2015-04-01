@@ -57,18 +57,33 @@ end
 
 global currentrow = 1
 
+session_timestamp() = begin
+  t = time()
+  strftime("%Y-%m-%dT%H:%M:%S.", t) * string(int(round(t % 1, 3) * 1000)) * "Z"
+end
+
+function rand_test_outcome()
+  pr = rand()
+  if pr < 0.10
+    -1 # Failure
+  elseif pr < 0.95
+    1 # Pass
+  else
+    0 # Missing info
+  end
+end
+
 # For now the processing is just to send some random data every now and then...
 function processing_func()
-  global currentrow
-  println("Starting processing of row ", currentrow)
-  numcols = 10
-  @sync @parallel for col in 1:numcols
+  numtestcases = 10
+  session = session_timestamp()
+  @sync @parallel for tc in 1:numtestcases
     sleep(1 + 5 * rand()) # Fake that processing takes time...
     msgtype = (rand() < 0.80) ? "dataupdate" : "unspecified"
-    send({"type" => msgtype, "name" => "a", "action" => "set_value", 
-      "value" => round(rand(), 2), "row" => currentrow, "col" => col})
+    send({"type" => msgtype, "name" => "tom", 
+      "session" => session, "testcase" => tc,
+      "value" => rand_test_outcome()})
   end
-  currentrow += 1
 end
 
 start_websocket_handler_while_processing(processing_func)

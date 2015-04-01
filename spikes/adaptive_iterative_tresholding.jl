@@ -126,12 +126,55 @@ end
 scad(tau, u) = scad_penalty_tresholding(3.7, tau, u)
 hard(tau, u) = abs(u) > tau ? u : 0.0
 
+splitindices(n, ratio = 0.10) = begin
+  randindices = shuffle(collect(1:n))
+  numtest = ifloor(ratio*n)
+  test = randindices[1:numtest]
+  train = randindices[(numtest+1):end]
+  return (train, test)
+end
+
+# Run AIt for multiple k-values from 2*sqrt(P) down to 1
+# and then select the one with lowest MSE on a TestRatio
+# holdout test set.
+function ait_best_k(A, b, TestRatio = 0.20; kws...)
+  N, P = size(A)
+
+  # Split in train and test sets
+  trainidxs, testidxs = splitindices(N, TestRatio)
+  Atrain = A[trainidxs,:]
+  btrain = b[trainidxs]
+  Atest = A[testidxs,:]
+  btest = b[testidxs]
+
+  maxP = ifloor(2*sqrt(P))
+  if maxP >= P
+    maxP = P - 1
+  end
+
+  local bestcoefs = bestits = bestmse = Inf
+
+  mses = Dict{Int64,Float64}()
+
+  for k in maxP:-1:1
+    coefs, its = adaptive_iterative_tresholding(Atrain, btrain; k = k, kws...)
+    mses[k] = mse(btest, Atest * coefs)
+    if mses[k] < bestmse
+      bestcoefs = coefs
+      bestits = its
+      bestmse = mses[k]
+    end
+  end
+
+  return bestcoefs, bestits, mses
+end
+
 # using PyPlot
 # x = linspace(-5.0, 5.0, 200)
 # y = map((x) -> scad_penalty_tresholding(3.7, 1.0, x), x)
 # plot(x, y, color="red", linewidth=2.0, linestyle="--")
 
-mse(y,yhat) = sum( (y .- yhat).^2 )
+mse(y,yhat) = mean( (y .- yhat).^2 )
 
 # N-fold cross-validation to select the sparseness level for AIT.
 function nfoldCV_ait(A, b)
@@ -148,25 +191,6 @@ function nfoldCV_ait(A, b)
     xs[i,:] = x
   end
 end
-
-function coeffquality(expected, actual)
-  @assert length(expected) == length(actual)
-  confusionmatrix = zeros(2, 2)
-  for i in 1:length(expected)
-    e = abs(expected[i]) > 0.0 ? 1 : 2
-    a = abs(actual[i])   > 0.0 ? 1 : 2
-    confusionmatrix[a, e] += 1.0
-  end
-  return (accuracy(confusionmatrix), mcc(confusionmatrix), norm(expected - actual, 1))
-end
-
-tp(cm) = cm[1,1]
-fp(cm) = cm[1,2]
-fn(cm) = cm[2,1]
-tn(cm) = cm[2,2]
-sensitivity(cm) = cm[1,1] / (cm[1,1] + cm[2,1])
-accuracy(cm) = (tp(cm) + tn(cm)) / (sum(cm))
-mcc(cm) = (tp(cm) * tn(cm) - fp(cm) * fn(cm)) / sqrt( (tp(cm) + fp(cm)) * (tp(cm) + fn(cm)) * (tn(cm) + fp(cm)) * (tn(cm) + fn(cm)))
 
 function ait_mse(A, b, k)
   betas, its = adaptive_iterative_tresholding(A, b; k = k)
@@ -223,11 +247,11 @@ function test_ait_on_random_problem(N, P, kstar)
   return (N, P, kstar, k, mse, coeffquality(betas, betasp))
 end
 
-for kstar in [3, 4, 5, 6]
-  for P in [10, 20, 50, 100]
-    println(test_ait_on_random_problem(100, P, kstar), "\n")
-  end
-end
+#for kstar in [3, 4, 5, 6]
+#  for P in [10, 20, 50, 100]
+#    println(test_ait_on_random_problem(100, P, kstar), "\n")
+#  end
+#end
 
 # N, P = (rand(20:100), 20)
 # kstar = ifloor(sqrt(P)) - 1

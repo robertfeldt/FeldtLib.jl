@@ -4,6 +4,7 @@
     <title>Dynamically updating D3 from Julia heatmap</title>
     <meta charset="UTF-8">
     <script src="http://cdnjs.cloudflare.com/ajax/libs/bacon.js/0.7.12/bacon.min.js"></script>
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/paper.js/0.9.18/paper-core.min.js"></script>
     <script>
       window.onload = function() {
         var ws = new WebSocket("ws://localhost:8084/");
@@ -26,29 +27,56 @@
           console.log(JSON.stringify(results));
         });
 
-        var a = []; // Empty for now, will be filled from back end
+        
+        var tom = {}; // Test Outcome Matrix (TOM). Maps test case name to array of outcomes.
+        var sessions = []; // Ordered by arrival. DateTime when session started.
 
         var dataUpdateStream = updateStream.filter(function(update) {
           return update.type === "dataupdate";
         });
+
         dataUpdateStream.onValue(function(results) {
           console.log(JSON.stringify(results));
-          if(results["name"] == "a") {
-            console.log("Data to update is a, with value ", results["value"]);
-            if(a.length < results["row"]) {
-              for (i = a.length+1; i <= results["row"]; i++) {
-                a[i-1] = new Array();
-              }
+
+          if(results["name"] == "tom") {
+            console.log("Data to update is tom, with value ", results);
+
+            if(tom[results["testcase"]] == undefined) {
+              tom[results["testcase"]] = {};
             }
-            //console.log("row: ", results["row"], ", col: ", results["col"], ", value: ", results["value"]);
-            a[results["row"]-1][results["col"]-1] = results["value"];
-            console.log("a is now:\n", JSON.stringify(a));
+
+            tom[results["testcase"]][results["session"]] = results["value"];
+            console.log("tom is now:\n", JSON.stringify(tom));
           }
+
         });
+
+        // Set up paper.js and its canvas, then draw a line.
+        var canvas = document.getElementById('paperCanvas');
+        paper.setup(canvas);
+
+        var path = new paper.Path.Rectangle([75, 75], [100, 100]);
+        path.strokeColor = 'black';
+
+        var rectangle = new paper.Rectangle(new paper.Point(20, 20), new paper.Point(40, 40));
+        var cornerSize = new paper.Size(2, 2);
+        var path2 = new paper.Path.RoundRectangle(rectangle, cornerSize);
+        path2.fillColor = 'black';
+
+        paper.view.onFrame = function(event) {
+          // On each frame, rotate the path by 3 degrees:
+          // path.rotate(3);
+        }
+
+        paper.view.draw();
+
       };
     </script>
   </head>
     <body>
+      <canvas id="paperCanvas" class="canvas" width="800" height="400" style="background-color: white;">
+      </canvas>
+
       <div id="holder" style="width:600px; height:300px"></div>
     </body>
 </html>

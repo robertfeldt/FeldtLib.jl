@@ -22,3 +22,8 @@ from a Julia repl.
 * There is also an add-on layer to these tests to try to give them the same interface as in HypothesisTests.jl:
   - `BWSTest(x, y)`
   - `pvalue(t::BWSTest)`
+
+* Utilities used in these comparisons:
+  - `ranks(x, y)` to calculate the combined ranks of all values in x and y
+  - `factorial`
+  - `combinations`

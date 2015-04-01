@@ -114,6 +114,41 @@ function stability_selection(X::AbstractMatrix, y::AbstractVector;
   freqs[:]
 end
 
+# This implements the treshold (tau) selection procedure as described
+# at the end of page 10 in the Rajan&Shamworth paper.
+#
+# Input:
+#  P is the number of original features
+#  l is max number of low probability features selected, on average
+#  B is number of bootstraps, i.e. 2*B is the number of subsets used
+function select_treshold(P, l = 0.50, B = 50)
+  q = sqrt(0.8*l*P)
+  minD(q/P, B)
+end
+
+function minD(theta, B, rs = [-0.5, -0.25])
+  minimum(vcat(ones(B), tailprobabilities(theta^2, B, rs[1]), tailprobabilities(theta, B, rs[2])))
+end
+
+# Calculate the tail probabilities (based on r-concave funcs) for each
+# relevant tau. Based on Shah and Shamworth paper and their R code:
+#   http://www.statslab.cam.ac.uk/~rds37/papers/r_concave_tail.R
+function tailprobabilities(eta, B, r)
+  MAXa = 100000
+  MINa = 0.00001
+  s = -1/r
+  etaB = eta * B
+  k_start = iceil(2 * etaB) + 1
+  output = ones(B)
+  if k_start > B
+    return(output)
+  end
+
+  a_vec = MAXa * ones(B)
+
+
+end
+
 function indover(v, treshold = 0.70)
   collect(1:length(v))[v .> treshold]
 end

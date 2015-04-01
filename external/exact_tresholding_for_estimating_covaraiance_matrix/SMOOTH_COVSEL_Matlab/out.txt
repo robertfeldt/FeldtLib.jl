@@ -1,0 +1,10 @@
+iter=    33 time=    4.3 obj=-1.865219e+02 gap=9.613355e-02
+iter=   109 time=   43.2 obj=-4.492086e+02 gap=9.884088e-02
+iter=   146 time=  110.3 obj=-7.676144e+02 gap=9.975206e-02
+iter=   154 time=  275.0 obj=-1.082677e+03 gap=9.820909e-02
+iter=   100 time=    8.7 obj=-4.872467e+02 gap=6.253417e-05
+iter=   120 time=   11.7 obj=-4.872467e+02 gap=9.891865e-06
+iter=    39 time=    2.7 obj=-5.933023e+02 gap=7.722038e-06
+iter=    67 time=    5.2 obj=-5.933023e+02 gap=8.932854e-11
+iter=    33 time=    3.6 obj=-1.865219e+02 gap=9.613355e-02
+iter=   154 time=  309.5 obj=-1.402502e+03 gap=9.945676e-02

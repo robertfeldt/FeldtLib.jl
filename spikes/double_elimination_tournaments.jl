@@ -95,5 +95,5 @@ function rank_per_row(matrix, rev = false)
   ranks
 end
 
-ranks = rank_per_row(P)
-meanranks = mean(ranks, 1)
+ranks = rank_per_row(P, true)
+meanranks = mean(ranks, 1)[:]

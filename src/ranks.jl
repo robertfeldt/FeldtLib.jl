@@ -9,3 +9,11 @@ function ranks(v::AbstractArray)
 
   ord
 end
+
+function factorial(n::Integer)
+  prod(1:n)
+end
+
+function combinations(k::Integer, n::Integer)
+  factorial(n) / (factorial(k) * factorial(n-k))
+end

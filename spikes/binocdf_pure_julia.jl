@@ -113,7 +113,7 @@ function logsample(min, max)
   exp(logmin + (logmax - logmin) * rand()) - shift
 end
 
-NumReps = 1e5
+NumReps = 1e6
 ourtimesum = 0.0
 dtimesum = 0.0
 
