@@ -43,7 +43,7 @@ solve_prox_problem_with_convexjl(yproxvals, lambdas, x, constraints) = begin
   yperm, sngy, absy = sort_and_normalize(yproxvals)
   ynormalized = absy[yperm]
 
-  proxproblem = minimize(0.5 * norm(ynormalized .- x, 2) + sum(lambdas .* x), constraints)
+  proxproblem = minimize(0.5 * norm(ynormalized .- x, 2)^2 + sum(lambdas .* x), constraints)
   solve!(proxproblem)
   if proxproblem.status != :Optimal
     throw(string(proxproblem))
