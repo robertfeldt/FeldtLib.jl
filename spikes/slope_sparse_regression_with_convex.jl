@@ -1,0 +1,122 @@
+# Solves sparse regression problems with the SLOPE method of Bogdan et al [Bogdan2014].
+# Since the prox step in solving SLOPE is a quadratic program we here use Convex.jl
+# to solve it. This should in general be an inferior solution to the FastProxSL1 method
+# described in [Bogdan2014]. But it is fun and simple and still performs well. :)
+
+# Beware! This is not yet bug-free...
+
+# The key step in both the proximal gradient and the accelerated proximal gradient algorithms
+# to solve SLOPE is to solve the prox problem. According to 2.2 and 2.3 in [Bogdan2014] the prox
+# can be solved by a quadratic program which we implement in Convex.jl:
+using Convex
+
+# Set up x once and for all so we need not do it on each prox optimization round.
+setup_x_and_constraints(p) = begin
+  x = Variable(p)
+  constraints = Constraint[]
+  for i in 1:(p-1)
+    constraints += (x[i] >= x[i+1])
+  end
+  return x, constraints
+end
+
+# The prox problem we solve assumes y are sorted and positive. We keep the permutation vector
+# around so we can revert later.
+sort_and_normalize(y) = begin
+  return sortperm(y), sign(y), abs(y)
+end
+
+solve_prox_problem_with_convexjl(y, lambdas, x, constraints) = begin
+  yperm, sngy, absy = sort_and_normalize(y)
+  ynormalized = absy[yperm]
+
+  problem = minimize(0.5 * norm(ynormalized .- x), constraints)
+  solve!(problem)
+  if problem.status != :Optimal
+    throw(string(problem))
+  end
+
+  # Reorder and put back the signs...
+  p = length(lambdas)
+  xnew = zeros(p)
+  for i in 1:p
+    yi = yperm[i]
+    xnew[yi] = sngy[yi] * x.value[i]
+  end
+  xnew
+end
+
+# Use a given lambdas sequence or set it up based on the simple sequence from
+# Candes2015 paper if not given.
+function check_and_setup_lambdasequence(p, lambdas = nothing)
+  if lambdas != nothing
+    @assert p == length(lambdas)
+  else
+    # Page 7 of the latest Candes2015 paper on SLOPE states that a very simple lambda sequence can be used:
+    lambdafunc(k, p) = sqrt(2*log(p/k))
+    lambdas = map(k -> lambdafunc(k, p), 1:p)
+  end
+  return lambdas
+end
+
+# The simplest SLOPE solver is just a proximal gradient. It assumes we have a way to solve the prox
+# problem.
+function solve_SLOPE_w_proximal_gradient(X::Matrix{Float64}, y::Vector{Float64}, proxsolver::Function;
+  stepsizefunc = (i,b) -> 1e-2, # This is a very restricted, fixed step size scheme for now...
+  lambdas = nothing,            # Default is to use the simple sequence below from Candes2015 paper...
+  maxiterations = int(1e4), stopval = 1e-4, verbose = true)
+
+  # Assert valid inputs, setup and precalc
+  n, p = size(X)
+  @assert n == length(y)
+  lambdas = check_and_setup_lambdasequence(p, lambdas)
+  Xprim = X'        # Precalc for speed 
+  bprev = randn(p)  # Initial guess is random
+
+  # Now iterate for maxiterations steps or until stopval reached.
+  for k in 1:maxiterations
+    tk = stepsizefunc(k, bprev)
+    yproxvals = bprev .- tk * Xprim * (X * bprev .- y)
+    bnew = proxsolver(yproxvals, lambdas)
+    @show bprev
+    @show bnew
+    delta = norm(bnew .- bprev)
+    println("k = ", k, ", delta = ", delta)
+    if delta < stopval
+      return bnew
+    end
+    bprev = bnew
+  end
+  return bnew
+end
+
+function solve_SLOPE_w_convexjl(X::Matrix{Float64}, y::Vector{Float64}; options...)
+  p = size(X, 2)
+  x, constraints = setup_x_and_constraints(p)
+  proxsolver(yvals, lambdas) = solve_prox_problem_with_convexjl(yvals, lambdas, x, constraints)
+  solve_SLOPE_w_proximal_gradient(X, y, proxsolver; options...)
+end
+
+# Now generate a random, sparse regression problem
+function rand_sparse_problem(p; a = iceil(log(p)), n = int(p/2), amplitude = 10.0, sigma = amplitude/100, shuffle = true)
+  beta = vcat(amplitude*ones(a)+randn(a), zeros(p-a))
+  indices = collect(1:p)
+  if shuffle
+    shuffle!(indices)
+    beta = beta[indices]
+  end
+  X = randn(n, p)
+  errors = sigma*randn(n)
+  y = X * beta .+ errors
+  return beta, X, y, indices, n, p, a, sigma, amplitude, errors
+end
+
+beta, X, y, indices, n, p, a, sigma, amplitude, errors = rand_sparse_problem(100);
+
+# And let SLOPE loose on it...
+@time betahat = solve_SLOPE_w_convexjl(X, y)
+println(beta)
+println(betahat)
+println(norm(beta .- betahat))
+
+# There are bugs though...
