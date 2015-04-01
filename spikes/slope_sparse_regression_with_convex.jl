@@ -28,24 +28,29 @@ sort_and_normalize(y) = begin
   return sortperm(absy, rev = true), sign(y), absy
 end
 
-solve_prox_problem_with_convexjl(yvals, lambdas, x, constraints) = begin
-  yperm, sngy, absy = sort_and_normalize(yvals)
+# Go back from a sortperm to orig order.
+function revert_sortperm(y, yperm)
+  p = length(y)
+  yr = zeros(p)
+  for i in 1:p
+    yi = yperm[i]
+    yr[yi] = y[i]
+  end
+  yr
+end
+
+solve_prox_problem_with_convexjl(yproxvals, lambdas, x, constraints) = begin
+  yperm, sngy, absy = sort_and_normalize(yproxvals)
   ynormalized = absy[yperm]
 
-  proxproblem = minimize(0.5 * norm(ynormalized .- x) + sum(lambdas .* x), constraints)
+  proxproblem = minimize(0.5 * norm(ynormalized .- x, 2) + sum(lambdas .* x), constraints)
   solve!(proxproblem)
   if proxproblem.status != :Optimal
     throw(string(proxproblem))
   end
 
   # Reorder and put back the signs...
-  p = length(lambdas)
-  xnew = zeros(p)
-  for i in 1:p
-    yi = yperm[i]
-    xnew[yi] = sngy[yi] * x.value[i]
-  end
-  xnew
+  sngy .* revert_sortperm(x.value, yperm)
 end
 
 # Use a given lambdas sequence or set it up based on the simple sequence from
@@ -64,7 +69,7 @@ end
 # The simplest SLOPE solver is just a proximal gradient. It assumes we have a way to solve the prox
 # problem.
 function solve_SLOPE_w_proximal_gradient(X::Matrix{Float64}, y::Vector{Float64}, proxsolver::Function;
-  stepsizefunc = (i,b) -> 1e-2, # This is a very restricted, fixed step size scheme for now...
+  stepsizefunc = nothing,       # Default is to use 1/norm(X)^2, so a fixed scheme...
   lambdas = nothing,            # Default is to use the simple sequence below from Candes2015 paper...
   maxiterations = int(5e3), stopval = 1e-3, verbose = true)
 
@@ -74,6 +79,10 @@ function solve_SLOPE_w_proximal_gradient(X::Matrix{Float64}, y::Vector{Float64},
   lambdas = check_and_setup_lambdasequence(p, lambdas)
   Xprim = X'        # Precalc for speed 
   bprev = randn(p)  # Initial guess is random
+  if stepsizefunc == nothing
+    limitval = (2 / norm(X)^2) / 2 # Divide by 2 to ensure it is less than the limitval
+    stepsizefunc = (i,b) -> limitval
+  end
 
   # Now iterate for maxiterations steps or until stopval reached.
   for k in 1:maxiterations
