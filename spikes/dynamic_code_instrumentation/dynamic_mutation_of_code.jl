@@ -32,12 +32,10 @@ abstract DynamicInstrumenter
 @inline forloop_iterator(d::DynamicInstrumenter, it) = it
 @inline stop_execution(d::DynamicInstrumenter, funcname::Symbol, types, retval) = retval
 
-# Let's implement a execution timing instrumenter.
-abstract InstrumentedMutationTesting <: DynamicInstrumenter
-
 
 # The target function tf is rewritten dynamically to (this is the default instrumentation,
-# to speed things up individual instrumenters might need to make leaner versions):
+# to speed things up individual instrumenters might need to make leaner versions, this includes a lot 
+# to allow dynamic instrumentation/mutation etc):
 function tf(d::DynamicInstrumenter, x::Integer)
     start_execution(d, :tf, (Int), 7)
     if exec_line(d, 1)
