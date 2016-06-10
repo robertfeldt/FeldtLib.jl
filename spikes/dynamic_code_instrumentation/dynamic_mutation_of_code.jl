@@ -36,7 +36,8 @@ abstract DynamicInstrumenter
 abstract InstrumentedMutationTesting <: DynamicInstrumenter
 
 
-# The target function tf is rewritten dynamically to:
+# The target function tf is rewritten dynamically to (this is the default instrumentation,
+# to speed things up individual instrumenters might need to make leaner versions):
 function tf(d::DynamicInstrumenter, x::Integer)
     start_execution(d, :tf, (Int), 7)
     if exec_line(d, 1)
@@ -66,6 +67,8 @@ function tf(d::DynamicInstrumenter, x::Integer)
     stop_execution(d, :tf, (Int), nothing)
 end
 
+
+# Instrumenter 1.
 # Toy instrumenter that just measures the execution time. Not very well though since
 # it is hard to separate the instrumented code from the original code...
 type ExecTimingInstrumenter <: DynamicInstrumenter
@@ -83,9 +86,10 @@ arg1 = 5
 @time r1 = tf(arg1)
 eti = ExecTimingInstrumenter()
 @time r2 = tf(eti, arg1)
-@show (r1 == r2, eti)
+@show (r1 == r2, eti) # Not getting the performance I expected here yet, but solvable in principle with better type info?
 
 
+# Instrumenter 2.
 # A more interesting instrumenter is one that counts which statements has been executed.
 type StmtCoverageInstrumenter <: DynamicInstrumenter
     totallines::Int
@@ -120,3 +124,14 @@ arg2 = 4
 @time r4 = tf(scov2, arg2)
 @show (tf(arg2) == r4)
 stmt_coverage(scov2) # should be 6/7 since only the unary negation is not executed
+
+# Instrumenter 3.
+# Mutates binary operator + to * and vice versa.
+type BinopMutatingInstrumenter <: DynamicInstrumenter
+end
+@inline binop_mult(b::BinopMutatingInstrumenter, lhs, rhs) = lhs + rhs
+@inline binop_plus(d::BinopMutatingInstrumenter, lhs, rhs) = lhs * rhs
+
+mut = BinopMutatingInstrumenter()
+@time r5 = tf(mut, arg1)
+@show (r1 != r5)
