@@ -1,3 +1,4 @@
+// BayesianSlope.stan by Amir Sepehri, Stanford
 data {
   int<lower=0> p;             // number of variables
   int<lower=0> n;             // number of observations 
