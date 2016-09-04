@@ -1,6 +1,6 @@
 using Mamba, Stan
 
-currdir = dirname(@__FILE__())
+currdir = (@__FILE__() == nothing) ? "." : dirname(@__FILE__())
 const BayesianSlopeModel = open(fh -> readall(fh), joinpath(currdir, "BayesianSlope.stan"))
 
 # Create fake data to test
@@ -54,3 +54,11 @@ println("Non-zero coeffs:")
 map(i -> println("  $i: ", join(map(v -> round(v,2), quantile(betas_chain1[:,i,:][:], [0.05, 0.50, 0.95])), " - ")), sort(nonzero_idxs));
 println("Actual coeffs:")
 map(i -> println("  $i: ", coeffs[i]), sort(idxs_nonzero));
+
+# Now compare to Optim-based SLOPE regression
+include("optim_based_slope.jl")
+betas_optim = optim_based_slope_regression(y, X)
+largest_abs = sortperm(abs(betas_optim), rev=true)
+println("Largest 10: ", largest_abs[1:10])
+println("Coeffs:     ", map(i -> round(betas_optim[i], 3), largest_abs[1:10]))
+
