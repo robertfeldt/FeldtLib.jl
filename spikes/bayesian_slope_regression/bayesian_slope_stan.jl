@@ -13,7 +13,7 @@ idxs_nonzero = shuffle(collect(1:NumCoeffs))[1:nx]
 coeffs[idxs_nonzero] = nonzero_coeffs
 p = length(coeffs)
 s = 0.20
-n = 200
+n = 60
 X = randn(n, p)
 y = X * coeffs .+ s * randn(n)
 
@@ -57,8 +57,14 @@ map(i -> println("  $i: ", coeffs[i]), sort(idxs_nonzero));
 
 # Now compare to Optim-based SLOPE regression
 include("optim_based_slope.jl")
-betas_optim = optim_based_slope_regression(y, X)
-largest_abs = sortperm(abs(betas_optim), rev=true)
+#betas_optim = optim_based_slope_regression(y, X; absmax = 1e2)
+betas_optim = optim_based_slope_regression(y, X);
+largest_abs = sortperm(abs(betas_optim), rev=true);
 println("Largest 10: ", largest_abs[1:10])
 println("Coeffs:     ", map(i -> round(betas_optim[i], 3), largest_abs[1:10]))
 
+# Without extensive testing it seems that Bayesian SLOPE regression is more powerful:
+#  - if the number of cases (n) is low and, in particular, if n<p
+#  - in that it can give confidence intervals and not only point estimates
+# However, it does take a lot longer time so if n > p it might not be the way to go...
+# Optim-based SLOPE does not seem to work for n/p under 1.2 or so...
