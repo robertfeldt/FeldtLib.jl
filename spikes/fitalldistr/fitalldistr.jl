@@ -19,7 +19,7 @@ samples1 = rand(Normal(3.4, 1.2), 100)
 
 ContinuousDistributionsThatCanFit = filter(AllContinuousDistributions) do D
     try
-        fit_mle(D, samples)
+        fit_mle(D, samples1)
         true
     catch _err
         false
@@ -31,7 +31,7 @@ function fitalldistr{T<:Real}(x::AbstractArray{T}, sortby = :BIC)
     n = length(x)
     allfits = map(ContinuousDistributionsThatCanFit) do D
         d = fit_mle(D, x)
-        loglik = loglikelihood(d, samples)
+        loglik = loglikelihood(d, x)
         k = length(params(d))
         if sortby == :BIC
             criteria = -2 * loglik + k * log(n)
@@ -58,9 +58,11 @@ samples2 = rand(Exponential(0.3), 100)
 d2 = fitall(samples2)
 
 samples3 = rand(LogNormal(-5.0, 2.0), 100)
-d3 = fitalldistr(samples3)
+d3s = fitalldistr(samples3)
+d3 = fitall(samples3)
 
-samples4 = rand(Gamma(6.20, 1.3), 10)
-d4 = fitalldistr(samples4)
+samples4 = rand(Gamma(6.20, 1.3), 200)
+d4s = fitalldistr(samples4)
+d4 = fitall(samples4)
 
 # Should we maybe use a non-parametric test to select between them?
