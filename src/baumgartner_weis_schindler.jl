@@ -119,7 +119,7 @@ type BWSTest <: HypothesisTests.HypothesisTest
   # We save the numlarger and numsamples taken instead of the p-value since
   # we can then add additional iterations later if needed.
   numlarger::Integer
-  numiterations::Integer
+  numsamples::Integer
 end
 function BWSTest{S <: Number}(x::Vector{S}, y::Vector{S}, numsamples = 10000)
   rs = ranks(vcat(x, y))
