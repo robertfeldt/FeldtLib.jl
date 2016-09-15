@@ -15,6 +15,8 @@ AllContinuousDistributions = [
     SymTriangularDist, TDist, TriangularDist, Uniform, VonMises, Weibull
 ]
 
+samples1 = rand(Normal(3.4, 1.2), 100)
+
 ContinuousDistributionsThatCanFit = filter(AllContinuousDistributions) do D
     try
         fit_mle(D, samples)
@@ -31,7 +33,6 @@ function fitalldistr{T<:Real}(x::AbstractArray{T}, sortby = :BIC)
         d = fit_mle(D, x)
         loglik = loglikelihood(d, samples)
         k = length(params(d))
-        result = (d, 0.0)
         if sortby == :BIC
             criteria = -2 * loglik + k * log(n)
         elseif sortby == :AIC
