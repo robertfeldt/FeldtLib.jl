@@ -40,3 +40,6 @@ end
 # and intermediate values. So basically we just need to skip ahead to the first splitAttributeM
 # int and then read its double splitValue and just recurse.
 # Seems fairly simple in theory. :)
+
+# Example of how to parse these objects: http://www.javaworld.com/article/2072752/the-java-serialization-algorithm-revealed.html
+# Format spec: https://docs.oracle.com/javase/7/docs/platform/serialization/spec/protocol.html
