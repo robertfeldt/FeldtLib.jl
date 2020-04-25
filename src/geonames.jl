@@ -8,7 +8,7 @@ const DataDir = joinpath(dirname(@__FILE__()), "..", "data")
 function http_get_binary_file(url, destfile)
     r = HTTP.request("GET", url)
     open(destfile, "w") do fh
-        print(fh, r.body)
+        print(fh, String(r.body))
     end
 end
 
@@ -25,7 +25,7 @@ end
 
 # To map Swedish postal numbers to Long and Lat we can use the export dumps
 # of Geonames.org available here:
-const GeonamesPostalDumpBaseUrl = "https://download.geonames.org/export/zip/"
+const Geoname   sPostalDumpBaseUrl = "https://download.geonames.org/export/zip/"
 # However, the resolution of this data is poor and most postal numbers are just
 # mapped to the city that is closest to them.
 
@@ -144,14 +144,19 @@ const SwePostnrDict = CachedDict(SwePostnrDictCache) do
     Dict{Union{String,Int},Tuple{Float64, Float64, String}}()
 end
 
-function swedish_postnr2position(postnr::String, redownload = false)
+function swedish_postnr2position(postnr::String, addr::String = "";
+    redownload = false, usegeonames = false)
     shortform = replace(strip(postnr), r"\s+" => "")
     global SwePostnrDict
     if haskey(SwePostnrDict, shortform)
         return SwePostnrDict[shortform]
     end
-    lat, long, c1, c2, c3 = geonames_swedish_postnr2position(shortform)
-    res = geocode(postnr, c1, c2, c3)
+    res = if usegeonames
+        lat, long, c1, c2, c3 = geonames_swedish_postnr2position(shortform)
+        geocode(shortform, c1, c2, c3)
+    else
+        geocode(shortform, addr)
+    end
     loc = res["geometry"]["location"]
     lat = loc["lat"]
     lng = loc["lng"]
