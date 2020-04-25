@@ -1,6 +1,7 @@
 using Serialization
 using JSON
 using HTTP
+using ZipFile
 
 const DataDir = joinpath(dirname(@__FILE__()), "..", "data")
 
@@ -8,6 +9,17 @@ function http_get_binary_file(url, destfile)
     r = HTTP.request("GET", url)
     open(destfile, "w") do fh
         print(fh, r.body)
+    end
+end
+
+function unzip(filename, writefiles = [])
+    r = ZipFile.Reader(filename)
+    for f in r.files
+        if length(writefiles) == 0 || in(f.name, writefiles)
+            open(f.name, "w") do fh
+                write(fh, read(f))
+            end
+        end
     end
 end
 
@@ -30,12 +42,12 @@ function get_latest_geonames_postal_country_dump(country = "SE", redownload = fa
         http_get_binary_file(url, destfile)
         if isfile(destfile)
             cd(destdir) do
-                run(`unzip -u $destfile`)
+                unzip(destfile)
             end
             if isfile(resultfile)
                 cd(destdir) do
-                    rm(destfile)
-                    rm("readme.txt")
+                    isfile(destfile) && rm(destfile)
+                    isfile("readme.txt") && rm("readme.txt")
                 end
                 return resultfile
             else
