@@ -109,7 +109,7 @@ mutable struct GoogleMapsApi
     key::String
     mindelay::Float64
     lasttime::Float64
-    GoogleMapsApi(key::String, mindelay::Float64 = 0.5) = 
+    GoogleMapsApi(key::String, mindelay::Float64 = 0.2) = 
         new(key, mindelay, 0.0)
 end
 
@@ -147,9 +147,8 @@ function format_postnummer_for_search(nr::String)
 end
 
 function geocode(g::GoogleMapsApi, searchterms...)
-    searchterms = map(removews, searchterms)
-    s = format_postnummer_for_search(searchterms[1]) * "+" * 
-            join(searchterms[2:end], "+")
+    sts = map(removews, searchterms)
+    s = format_postnummer_for_search(sts[1]) * "+" * join(sts[2:end], "+")
     url = "https://maps.googleapis.com/maps/api/geocode/json?address=$(s)"
     js = getjson(g, url)
     if !isnothing(js) && haskey(js, "results") && (length(js["results"]) >= 1)
