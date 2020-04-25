@@ -12,6 +12,9 @@ Base.setindex!(c::CachedDict, value, key) = update!(c, value, key, true)
 function update!(c::CachedDict, value, key, writetodisc = false)
     c.d[key] = value
     if writetodisc
+        if !isdir(dirname(c.cachefile))
+            mkpath(dirname(c.cachefile))
+        end
         serialize(c.cachefile, c.d)
     end
     value

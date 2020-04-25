@@ -37,7 +37,7 @@ function get_latest_geonames_postal_country_dump(country = "SE", redownload = fa
     url = GeonamesPostalDumpBaseUrl * filename
     destdir = DataDir
     if !isdir(destdir)
-        mkdir(destdir)
+        mkpath(destdir)
     end
     destfile = joinpath(destdir, filename)
     resultfile = joinpath(destdir, country * ".txt")
