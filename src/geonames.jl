@@ -164,6 +164,7 @@ function swedish_postnr2position(postnr::String, addr::String = "";
     else
         geocode(shortform, addr)
     end
+    isnothing(res) && return nothing
     loc = res["geometry"]["location"]
     lat = loc["lat"]
     lng = loc["lng"]
