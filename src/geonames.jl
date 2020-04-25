@@ -4,6 +4,9 @@ using HTTP
 using ZipFile
 
 const DataDir = joinpath(dirname(@__FILE__()), "..", "data")
+if !isdir(DataDir)
+    mkdir(DataDir)
+end
 
 function http_get_binary_file(url, destfile)
     r = HTTP.request("GET", url)
