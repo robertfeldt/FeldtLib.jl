@@ -155,7 +155,7 @@ function swedish_postnr2position(postnr::String, addr::String = "";
     redownload = false, usegeonames = false)
     shortform = replace(strip(postnr), r"\s+" => "")
     global SwePostnrDict
-    if haskey(SwePostnrDict, shortform)
+    if !redownload && haskey(SwePostnrDict, shortform)
         return SwePostnrDict[shortform]
     end
     res = if usegeonames
