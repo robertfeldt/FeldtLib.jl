@@ -105,18 +105,30 @@ end
 
 # Google maps api string:
 # https://maps.googleapis.com/maps/api/geocode/json?address=417+56+G%C3%B6teborg&key=YOUR_API_KEY
-struct GoogleMapsApi
+mutable struct GoogleMapsApi
     key::String
+    mindelay::Float64
+    lasttime::Float64
+    GoogleMapsApi(key::String, mindelay::Float64 = 0.5) = 
+        new(key, mindelay, 0.0)
 end
 
 function addapikey(g::GoogleMapsApi, prefix, postfix = "")
     prefix * "&key=$(g.key)" * postfix
 end
 
+function get(g::GoogleMapsApi, url::String)
+    t = time()
+    if t - g.lasttime < g.mindelay
+        sleep(g.mindelay - (t - g.lasttime))
+    end
+    g.lasttime = time()
+    HTTP.get(url)
+end
+
 function getjson(g::GoogleMapsApi, url::String)
     searchurl = addapikey(g, url)
-    rawdata = HTTP.get(searchurl)
-    JSON.parse(String(rawdata.body))
+    JSON.parse(String(get(g, searchurl).body))
 end
 
 DefaultGoogleMapsApi = nothing
@@ -127,11 +139,24 @@ function setgooglemapsapikey!(key::String)
     DefaultGoogleMapsApi = GoogleMapsApi(key)
 end
 
+removews(s) = replace(s, r"\s+" => "")
+
+function format_postnummer_for_search(nr::String)
+    nr = removews(nr)
+    occursin(r"\d{5}", nr) ? (nr[1:3] * "+" * nr[4:5]) : nr
+end
+
 function geocode(g::GoogleMapsApi, searchterms...)
-    s = join(map(s -> replace(strip(s), r"\s+" => "+"), searchterms), "+")
+    searchterms = map(removews, searchterms)
+    s = format_postnummer_for_search(searchterms[1]) * "+" * 
+            join(searchterms[2:end], "+")
     url = "https://maps.googleapis.com/maps/api/geocode/json?address=$(s)"
     js = getjson(g, url)
-    return (length(js) < 1) ? nothing : first(js["results"])
+    if !isnothing(js) && haskey(js, "results") && (length(js["results"]) >= 1)
+        return first(js["results"])
+    else
+        return nothing
+    end
 end
 
 function geocode(searchterms...)
