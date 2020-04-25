@@ -4,6 +4,13 @@ using HTTP
 
 const DataDir = joinpath(dirname(@__FILE__()), "..", "data")
 
+function http_get_binary_file(url, destfile)
+    r = HTTP.request("GET", url)
+    open(destfile, "w") do fh
+        print(fh, r.body)
+    end
+end
+
 # To map Swedish postal numbers to Long and Lat we can use the export dumps
 # of Geonames.org available here:
 const GeonamesPostalDumpBaseUrl = "https://download.geonames.org/export/zip/"
@@ -20,7 +27,7 @@ function get_latest_geonames_postal_country_dump(country = "SE", redownload = fa
     destfile = joinpath(destdir, filename)
     resultfile = joinpath(destdir, country * ".txt")
     if redownload || !isfile(resultfile)
-        run(`curl -o $destfile $url`)
+        http_get_binary_file(url, destfile)
         if isfile(destfile)
             cd(destdir) do
                 run(`unzip -u $destfile`)
