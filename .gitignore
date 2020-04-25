@@ -1,2 +1,3 @@
 test/.autotest/*
 Manifest.toml
+data/**/*
