@@ -131,7 +131,11 @@ function geocode(g::GoogleMapsApi, searchterms...)
     s = join(map(s -> replace(strip(s), r"\s+" => "+"), searchterms), "+")
     url = "https://maps.googleapis.com/maps/api/geocode/json?address=$(s)"
     js = getjson(g, url)
-    first(js["results"])
+    if length(js) < 1
+        return nothing
+    else
+        first(js["results"])
+    end
 end
 
 function geocode(searchterms...)
