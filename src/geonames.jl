@@ -25,7 +25,7 @@ end
 
 # To map Swedish postal numbers to Long and Lat we can use the export dumps
 # of Geonames.org available here:
-const Geoname   sPostalDumpBaseUrl = "https://download.geonames.org/export/zip/"
+const GeonamesPostalDumpBaseUrl = "https://download.geonames.org/export/zip/"
 # However, the resolution of this data is poor and most postal numbers are just
 # mapped to the city that is closest to them.
 
