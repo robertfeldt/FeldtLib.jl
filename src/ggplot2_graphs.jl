@@ -1,10 +1,11 @@
 using RCall
 
-function ggplot2_distribution(values::Vector{Float64}, filename;
+function ggplot2_distribution(values::AbstractVector, filename;
     title = "Distribution",
     xaxistitle = "Cases",
     types = [:histogram, :density],
     yaxistitle = "Count")
+    values = convert(Vector{Float64}, values)
     R"library(ggplot2)"
     R"library(ggthemes)"
     @rput values
