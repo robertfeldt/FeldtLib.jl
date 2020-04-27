@@ -1,6 +1,7 @@
 module FeldtLib
 
 export setgooglemapsapikey!, swedish_postnr2position
+export ggplot2_distribution
 
 #include("ranks.jl")
 #include("baumgartner_weis_schindler.jl")
@@ -8,5 +9,6 @@ export setgooglemapsapikey!, swedish_postnr2position
 include("cacheddict.jl")
 include("geocoding.jl")
 include("geonames.jl")
+include("ggplot2_graphs.jl")
 
 end
