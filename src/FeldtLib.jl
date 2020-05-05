@@ -1,6 +1,6 @@
 module FeldtLib
 
-export setgooglemapsapikey!, swedish_postnr2position
+export setgooglemapsapikey!, swedish_postnr2position, address2position
 export ggplot2_distribution
 
 #include("ranks.jl")

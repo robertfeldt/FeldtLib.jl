@@ -133,13 +133,14 @@ end
 
 DefaultGoogleMapsApi = nothing
 
-function setgooglemapsapikey!(key::String)
+function setgooglemapsapikey!(key::String, defaultmindelay = 0.5)
     HTTP.setuseragent!("Mozilla/5.0 (Windows NT 10.0; rv:68.0) Gecko/20100101 Firefox/68.0")
     global DefaultGoogleMapsApi
-    DefaultGoogleMapsApi = GoogleMapsApi(key)
+    DefaultGoogleMapsApi = GoogleMapsApi(key, defaultmindelay)
 end
 
 removews(s) = replace(s, r"\s+" => "")
+replacews(s, c="+") = replace(strip(s), r"\s+" => c)
 
 function format_postnummer_for_search(nr::String)
     nr = removews(nr)
@@ -147,8 +148,8 @@ function format_postnummer_for_search(nr::String)
 end
 
 function geocode(g::GoogleMapsApi, searchterms...)
-    sts = map(removews, searchterms)
-    s = format_postnummer_for_search(sts[1]) * "+" * join(sts[2:end], "+")
+    sts = map(replacews, searchterms)
+    s = join(sts, "+")
     url = "https://maps.googleapis.com/maps/api/geocode/json?address=$(s)"
     js = getjson(g, url)
     if !isnothing(js) && haskey(js, "results") && (length(js["results"]) >= 1)
@@ -178,11 +179,12 @@ function swedish_postnr2position(postnr::String, addr::String = "";
     if !redownload && haskey(SwePostnrDict, shortform)
         return SwePostnrDict[shortform]
     end
+    searchform = format_postnummer_for_search(shortform)
     res = if usegeonames
         lat, long, c1, c2, c3 = geonames_swedish_postnr2position(shortform)
-        geocode(shortform, c1, c2, c3)
+        geocode(searchform, c1, c2, c3)
     else
-        geocode(shortform, addr)
+        geocode(searchform, addr)
     end
     isnothing(res) && return nothing
     loc = res["geometry"]["location"]
@@ -197,5 +199,31 @@ function swedish_postnr2position(postnr::String, addr::String = "";
     end
     asint = parse(Int, shortform)
     update!(SwePostnrDict, entry, asint, true)
+    return entry
+end
+
+const AddressDictCache = joinpath(DataDir, "AddressDict.juliadata")
+const AddressDict = CachedDict(AddressDictCache) do
+    Dict{Union{String,Int},Tuple{Float64, Float64, String}}()
+end
+
+address2position(a::String) = address2position([a])
+
+normalizeaddress(elems) = 
+    join(map(s -> replace(lowercase(strip(s)), r"\s{2}" => " "), elems), ", ")
+
+function address2position(addressParts::Vector{String}; redownload = false)
+    key = normalizeaddress(addressParts)
+    global AddressDict
+    if !redownload && haskey(AddressDict, key)
+        return AddressDict[key]
+    end
+    res = geocode(addressParts...)
+    isnothing(res) && return nothing
+    loc = res["geometry"]["location"]
+    lat = loc["lat"]
+    lng = loc["lng"]
+    entry = (lat, lng, res["formatted_address"])
+    update!(AddressDict, entry, key)
     return entry
 end
